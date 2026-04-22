@@ -3,11 +3,11 @@
  * @description 提供配置读取和写入能力，支持分段更新
  */
 
-import fs from 'fs';
-import path from 'path';
-import yaml from 'yaml';
-import { logger } from '../utils/logger.js';
-import { getConfigPath } from './index.js';
+import fs from "fs";
+import path from "path";
+import yaml from "yaml";
+import { logger } from "../utils/logger.js";
+import { getConfigPath } from "./index.js";
 
 /**
  * 读取原始配置（不带缓存，直接从磁盘读取）
@@ -16,9 +16,9 @@ import { getConfigPath } from './index.js';
 function readRawConfig() {
     const configPath = getConfigPath();
     if (!fs.existsSync(configPath)) {
-        throw new Error('配置文件不存在');
+        throw new Error("配置文件不存在");
     }
-    const content = fs.readFileSync(configPath, 'utf8');
+    const content = fs.readFileSync(configPath, "utf8");
     return yaml.parse(content);
 }
 
@@ -33,8 +33,8 @@ function writeConfig(config) {
         indent: 2,
         lineWidth: 0 // 不自动换行
     });
-    fs.writeFileSync(configPath, content, 'utf8');
-    logger.info('管理器', `配置已保存到 ${configPath}`);
+    fs.writeFileSync(configPath, content, "utf8");
+    logger.info("管理器", `配置已保存到 ${configPath}`);
 }
 
 /**
@@ -45,9 +45,9 @@ export function getServerConfig() {
     const config = readRawConfig();
     return {
         port: config.server?.port || 3000,
-        authToken: config.server?.auth || '',
-        keepaliveMode: config.server?.keepalive?.mode || 'comment',
-        logLevel: config.logLevel || 'info'
+        authToken: config.server?.auth || "",
+        keepaliveMode: config.server?.keepalive?.mode || "comment",
+        logLevel: config.logLevel || "info"
     };
 }
 
@@ -82,7 +82,7 @@ export function getBrowserConfig() {
     const cssInject = browser.cssInject || {};
 
     return {
-        path: browser.path || '',
+        path: browser.path || "",
         headless: browser.headless || false,
         fission: browser.fission !== false, // 默认 true
         humanizeCursor: browser.humanizeCursor ?? true, // false | true | 'camou'
@@ -93,12 +93,12 @@ export function getBrowserConfig() {
         },
         proxy: {
             enable: proxy.enable || false,
-            type: proxy.type || 'http',
-            host: proxy.host || '',
+            type: proxy.type || "http",
+            host: proxy.host || "",
             port: proxy.port || 0,
             auth: !!(proxy.user || proxy.passwd),
-            username: proxy.user || '',
-            password: proxy.passwd || ''
+            username: proxy.user || "",
+            password: proxy.passwd || ""
         }
     };
 }
@@ -176,16 +176,18 @@ export function getInstancesConfig() {
     const config = readRawConfig();
     const instances = config.backend?.pool?.instances || [];
 
-    return instances.map(inst => ({
+    return instances.map((inst) => ({
         name: inst.name,
         userDataMark: inst.userDataMark || null,
-        proxy: inst.proxy ? {
-            enable: inst.proxy.enable || false,
-            type: inst.proxy.type || 'http',
-            host: inst.proxy.host || '',
-            port: inst.proxy.port || 0
-        } : null,
-        workers: (inst.workers || []).map(w => ({
+        proxy: inst.proxy
+            ? {
+                  enable: inst.proxy.enable || false,
+                  type: inst.proxy.type || "http",
+                  host: inst.proxy.host || "",
+                  port: inst.proxy.port || 0
+              }
+            : null,
+        workers: (inst.workers || []).map((w) => ({
             name: w.name,
             type: w.type,
             mergeTypes: w.mergeTypes || [],
@@ -205,7 +207,7 @@ export function saveInstancesConfig(data) {
     if (!config.backend.pool) config.backend.pool = {};
 
     // 转换为 YAML 格式
-    config.backend.pool.instances = data.map(inst => {
+    config.backend.pool.instances = data.map((inst) => {
         const result = {
             name: inst.name
         };
@@ -217,7 +219,7 @@ export function saveInstancesConfig(data) {
         if (inst.proxy && inst.proxy.enable) {
             result.proxy = {
                 enable: true,
-                type: inst.proxy.type || 'http',
+                type: inst.proxy.type || "http",
                 host: inst.proxy.host,
                 port: inst.proxy.port
             };
@@ -225,12 +227,12 @@ export function saveInstancesConfig(data) {
             if (inst.proxy.password) result.proxy.passwd = inst.proxy.password;
         }
 
-        result.workers = (inst.workers || []).map(w => {
+        result.workers = (inst.workers || []).map((w) => {
             const worker = {
                 name: w.name,
                 type: w.type
             };
-            if (w.type === 'merge' && w.mergeTypes) {
+            if (w.type === "merge" && w.mergeTypes) {
                 worker.mergeTypes = w.mergeTypes;
                 if (w.mergeMonitor) worker.mergeMonitor = w.mergeMonitor;
             }
@@ -280,7 +282,7 @@ export function getPoolConfig() {
     const failover = pool.failover || {};
 
     return {
-        strategy: pool.strategy || 'least_busy',
+        strategy: pool.strategy || "least_busy",
         waitTimeout: pool.waitTimeout != null ? Math.round(pool.waitTimeout / 1000) : 120,
         failover: {
             enabled: failover.enabled !== false, // 默认 true

@@ -3,8 +3,8 @@
  * @description 提取自 routes.js 的鉴权逻辑
  */
 
-import { sendApiError } from '../respond.js';
-import { ERROR_CODES } from '../errors.js';
+import { sendApiError } from "../respond.js";
+import { ERROR_CODES } from "../errors.js";
 
 /**
  * 鉴权检查
@@ -13,7 +13,7 @@ import { ERROR_CODES } from '../errors.js';
  * @returns {boolean} 是否通过鉴权
  */
 export function checkAuth(req, authToken) {
-    const authHeader = req.headers['authorization'];
+    const authHeader = req.headers["authorization"];
     return authHeader === `Bearer ${authToken}`;
 }
 

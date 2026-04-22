@@ -3,7 +3,7 @@
  * @description 负责请求队列、并发控制和心跳机制，适配 Pool 模式架构
  */
 
-import { logger } from '../utils/logger.js';
+import { logger } from "../utils/logger.js";
 import {
     sendJson,
     sendSse,
@@ -12,10 +12,10 @@ import {
     sendApiError,
     buildChatCompletion,
     buildChatCompletionChunk
-} from './respond.js';
-import { ERROR_CODES } from './errors.js';
-import { incrementSuccess, incrementFailed } from '../utils/stats.js';
-import { createRecord, updateRecord, processResponseMedia } from '../utils/history.js';
+} from "./respond.js";
+import { ERROR_CODES } from "./errors.js";
+import { incrementSuccess, incrementFailed } from "../utils/stats.js";
+import { createRecord, updateRecord, processResponseMedia } from "../utils/history.js";
 
 /**
  * @typedef {object} TaskContext
@@ -58,13 +58,13 @@ export function createQueueManager(queueConfig, callbacks) {
     const { initBrowser, generate, config, navigateToMonitor, getCookies } = callbacks;
 
     // 计算有效队列大小：0 表示不限制，否则为 maxConcurrent + buffer
-    const effectiveQueueSize = queueBuffer === 0 ? Infinity : (maxConcurrent + queueBuffer);
+    const effectiveQueueSize = queueBuffer === 0 ? Infinity : maxConcurrent + queueBuffer;
 
     /** @type {TaskContext[]} */
     const queue = [];
 
     /** @type {TaskContext[]} */
-    const processingTasks = [];  // 跟踪正在处理的任务
+    const processingTasks = []; // 跟踪正在处理的任务
 
     /** @type {number} */
     let processingCount = 0;
@@ -78,12 +78,12 @@ export function createQueueManager(queueConfig, callbacks) {
      */
     async function cleanupTask(task) {
         if (task?.imagePaths) {
-            const fs = await import('fs/promises');
+            const fs = await import("fs/promises");
             for (const p of task.imagePaths) {
                 try {
                     await fs.unlink(p);
                 } catch (e) {
-                    logger.debug('服务器', `临时文件清理失败: ${p}`);
+                    logger.debug("服务器", `临时文件清理失败: ${p}`);
                 }
             }
         }
@@ -97,7 +97,10 @@ export function createQueueManager(queueConfig, callbacks) {
         const { res, prompt, imagePaths, modelId, modelName, id, isStreaming, reasoning } = task;
         const startTime = Date.now();
 
-        logger.info('服务器', '[队列] 开始处理任务', { id, remaining: queue.length });
+        logger.info("服务器", "[队列] 开始处理任务", {
+            id,
+            remaining: queue.length
+        });
 
         // 创建历史记录
         try {
@@ -108,10 +111,10 @@ export function createQueueManager(queueConfig, callbacks) {
                 prompt,
                 inputImages: imagePaths,
                 isStreaming,
-                status: 'pending'
+                status: "pending"
             });
         } catch (e) {
-            logger.debug('服务器', `创建历史记录失败: ${e.message}`);
+            logger.debug("服务器", `创建历史记录失败: ${e.message}`);
         }
 
         // 启动心跳（流式请求）
@@ -133,7 +136,10 @@ export function createQueueManager(queueConfig, callbacks) {
             }
 
             // 调用核心生图逻辑 (通过 Pool 分发)
-            const result = await generate(poolContext, prompt, imagePaths, modelId, { id, reasoning });
+            const result = await generate(poolContext, prompt, imagePaths, modelId, {
+                id,
+                reasoning
+            });
 
             // 清除心跳
             if (heartbeatInterval) clearInterval(heartbeatInterval);
@@ -144,12 +150,12 @@ export function createQueueManager(queueConfig, callbacks) {
                 await incrementFailed();
                 try {
                     updateRecord(id, {
-                        status: 'failed',
+                        status: "failed",
                         errorMessage: result.error,
                         durationMs: Date.now() - startTime
                     });
                 } catch (e) {
-                    logger.debug('服务器', `更新历史记录失败: ${e.message}`);
+                    logger.debug("服务器", `更新历史记录失败: ${e.message}`);
                 }
                 sendApiError(res, {
                     code: ERROR_CODES.GENERATION_FAILED,
@@ -161,18 +167,18 @@ export function createQueueManager(queueConfig, callbacks) {
             }
 
             // 生成成功
-            let finalContent = '';
-            let reasoningContent = null;  // 思考过程内容
-            let historyResponseText = '';  // 历史记录中存储的文本（不含 base64）
+            let finalContent = "";
+            let reasoningContent = null; // 思考过程内容
+            let historyResponseText = ""; // 历史记录中存储的文本（不含 base64）
 
             if (result.image) {
                 // 直接返回 base64 数据，不加 Markdown 包装
                 finalContent = result.image;
                 // 历史记录只存原始 URL，不存 base64
-                historyResponseText = result.imageUrl || '';
+                historyResponseText = result.imageUrl || "";
             } else {
-                finalContent = result.text || '生成失败';
-                historyResponseText = result.text || '';
+                finalContent = result.text || "生成失败";
+                historyResponseText = result.text || "";
             }
 
             // 提取思考过程（如果有）
@@ -180,39 +186,50 @@ export function createQueueManager(queueConfig, callbacks) {
                 reasoningContent = result.reasoning;
             }
 
-            logger.info('服务器', '结果已准备就绪', { id });
+            logger.info("服务器", "结果已准备就绪", { id });
             await incrementSuccess();
 
             // 更新历史记录（异步处理媒体，不阻塞响应）
-            processResponseMedia(result, id).then(responseMedia => {
-                try {
-                    updateRecord(id, {
-                        status: 'success',
-                        responseText: historyResponseText,
-                        reasoningContent,
-                        responseMedia,
-                        durationMs: Date.now() - startTime
-                    });
-                } catch (e) {
-                    logger.debug('服务器', `更新历史记录失败: ${e.message}`);
-                }
-            }).catch(e => {
-                logger.debug('服务器', `处理响应媒体失败: ${e.message}`);
-            });
+            processResponseMedia(result, id)
+                .then((responseMedia) => {
+                    try {
+                        updateRecord(id, {
+                            status: "success",
+                            responseText: historyResponseText,
+                            reasoningContent,
+                            responseMedia,
+                            durationMs: Date.now() - startTime
+                        });
+                    } catch (e) {
+                        logger.debug("服务器", `更新历史记录失败: ${e.message}`);
+                    }
+                })
+                .catch((e) => {
+                    logger.debug("服务器", `处理响应媒体失败: ${e.message}`);
+                });
 
             // 发送成功响应
-            logger.info('服务器', '准备发送响应...', { id, isStreaming, contentLength: finalContent.length, hasReasoning: !!reasoningContent });
+            logger.info("服务器", "准备发送响应...", {
+                id,
+                isStreaming,
+                contentLength: finalContent.length,
+                hasReasoning: !!reasoningContent
+            });
             if (isStreaming) {
-                const chunk = buildChatCompletionChunk(finalContent, modelName, 'stop', reasoningContent);
+                const chunk = buildChatCompletionChunk(
+                    finalContent,
+                    modelName,
+                    "stop",
+                    reasoningContent
+                );
                 sendSse(res, chunk);
                 sendSseDone(res);
-                logger.info('服务器', '流式响应已结束', { id });
+                logger.info("服务器", "流式响应已结束", { id });
             } else {
                 const response = buildChatCompletion(finalContent, modelName, reasoningContent);
                 sendJson(res, 200, response);
-                logger.info('服务器', 'JSON 响应已发送', { id });
+                logger.info("服务器", "JSON 响应已发送", { id });
             }
-
         } catch (err) {
             // 清除心跳
             if (heartbeatInterval) clearInterval(heartbeatInterval);
@@ -221,14 +238,14 @@ export function createQueueManager(queueConfig, callbacks) {
             await incrementFailed();
             try {
                 updateRecord(id, {
-                    status: 'failed',
+                    status: "failed",
                     errorMessage: err.message,
                     durationMs: Date.now() - startTime
                 });
             } catch (e) {
-                logger.debug('服务器', `更新历史记录失败: ${e.message}`);
+                logger.debug("服务器", `更新历史记录失败: ${e.message}`);
             }
-            logger.error('服务器', '任务处理失败', { id, error: err.message });
+            logger.error("服务器", "任务处理失败", { id, error: err.message });
             sendApiError(res, {
                 code: ERROR_CODES.INTERNAL_ERROR,
                 message: err.message,
@@ -245,7 +262,7 @@ export function createQueueManager(queueConfig, callbacks) {
         if (processingCount >= maxConcurrent || queue.length === 0) {
             // 队列空闲时，触发监控跳转
             if (processingCount === 0 && queue.length === 0 && navigateToMonitor) {
-                navigateToMonitor().catch(() => { });
+                navigateToMonitor().catch(() => {});
             }
             return;
         }
@@ -253,7 +270,7 @@ export function createQueueManager(queueConfig, callbacks) {
         // 取出下一个任务
         const task = queue.shift();
         processingCount++;
-        processingTasks.push(task);  // 添加到处理中列表
+        processingTasks.push(task); // 添加到处理中列表
 
         try {
             await processTask(task);
@@ -296,12 +313,12 @@ export function createQueueManager(queueConfig, callbacks) {
      */
     function getDetailedStatus() {
         return {
-            processing: processingTasks.map(t => ({
+            processing: processingTasks.map((t) => ({
                 id: t.id,
                 model: t.modelName || t.modelId,
                 isStreaming: t.isStreaming
             })),
-            waiting: queue.map(t => ({
+            waiting: queue.map((t) => ({
                 id: t.id,
                 model: t.modelName || t.modelId,
                 isStreaming: t.isStreaming
@@ -325,7 +342,7 @@ export function createQueueManager(queueConfig, callbacks) {
         poolContext = await initBrowser(config);
         // 初始化完成后，触发首次监控跳转
         if (navigateToMonitor) {
-            navigateToMonitor().catch(() => { });
+            navigateToMonitor().catch(() => {});
         }
         return poolContext;
     }
@@ -346,7 +363,7 @@ export function createQueueManager(queueConfig, callbacks) {
      */
     async function getWorkerCookies(workerName, domain) {
         if (!getCookies) {
-            throw new Error('getCookies 回调未注册');
+            throw new Error("getCookies 回调未注册");
         }
         return await getCookies(workerName, domain);
     }

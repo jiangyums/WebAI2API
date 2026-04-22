@@ -3,11 +3,11 @@
  * @description 封装单个浏览器实例，提供模型匹配和任务执行能力
  */
 
-import fs from 'fs';
-import { logger } from '../../utils/logger.js';
-import { initBrowserBase, createCursor } from '../engine/launcher.js';
-import { registry } from '../registry.js';
-import { tryGotoWithCheck } from '../utils/page.js';
+import fs from "fs";
+import { logger } from "../../utils/logger.js";
+import { initBrowserBase, createCursor } from "../engine/launcher.js";
+import { registry } from "../registry.js";
+import { tryGotoWithCheck } from "../utils/page.js";
 
 /**
  * Worker 类 - 封装单个浏览器实例
@@ -37,9 +37,9 @@ export class Worker {
         this.initialized = false;
 
         // 浏览器所有权（用于共享浏览器场景的协调重启）
-        this._isBrowserOwner = false;  // 是否是浏览器的所有者（负责重启）
-        this._browserOwner = null;     // 如果是共享者，指向所有者 Worker
-        this._sharedWorkers = [];      // 如果是所有者，保存共享该浏览器的 Worker 列表
+        this._isBrowserOwner = false; // 是否是浏览器的所有者（负责重启）
+        this._browserOwner = null; // 如果是共享者，指向所有者 Worker
+        this._sharedWorkers = []; // 如果是所有者，保存共享该浏览器的 Worker 列表
     }
 
     /**
@@ -55,45 +55,53 @@ export class Worker {
         }
 
         // 获取目标 URL
-        let targetUrl = 'about:blank';
-        if (this.type === 'merge') {
+        let targetUrl = "about:blank";
+        if (this.type === "merge") {
             const firstType = this.mergeTypes[0];
-            targetUrl = registry.getTargetUrl(firstType, this.globalConfig, this.workerConfig) || 'about:blank';
+            targetUrl =
+                registry.getTargetUrl(firstType, this.globalConfig, this.workerConfig) ||
+                "about:blank";
         } else {
-            targetUrl = registry.getTargetUrl(this.type, this.globalConfig, this.workerConfig) || 'about:blank';
+            targetUrl =
+                registry.getTargetUrl(this.type, this.globalConfig, this.workerConfig) ||
+                "about:blank";
         }
 
         // 登录模式下不注册导航处理器，避免自动登录干预用户操作
-        const isLoginMode = process.argv.some(arg => arg.startsWith('-login'));
+        const isLoginMode = process.argv.some((arg) => arg.startsWith("-login"));
         let navigationHandler = null;
 
         if (!isLoginMode) {
             // 收集导航处理器
             const handlers = [];
-            const typesToHandle = this.type === 'merge' ? this.mergeTypes : [this.type];
+            const typesToHandle = this.type === "merge" ? this.mergeTypes : [this.type];
             for (const type of typesToHandle) {
                 const typeHandlers = registry.getNavigationHandlers(type);
                 handlers.push(...typeHandlers);
             }
 
-            navigationHandler = handlers.length > 0
-                ? async (page) => {
-                    for (const handler of handlers) {
-                        try {
-                            await handler(page);
-                        } catch (e) {
-                            logger.debug('工作池', `导航处理器执行失败: ${e.message}`);
-                        }
-                    }
-                }
-                : null;
+            navigationHandler =
+                handlers.length > 0
+                    ? async (page) => {
+                          for (const handler of handlers) {
+                              try {
+                                  await handler(page);
+                              } catch (e) {
+                                  logger.debug("工作池", `导航处理器执行失败: ${e.message}`);
+                              }
+                          }
+                      }
+                    : null;
         }
 
-        logger.info('工作池', `[${this.name}] 正在初始化浏览器...`);
+        logger.info("工作池", `[${this.name}] 正在初始化浏览器...`);
         if (this.proxyConfig) {
-            logger.info('工作池', `[${this.name}] 使用代理: ${this.proxyConfig.type}://${this.proxyConfig.host}:${this.proxyConfig.port}`);
+            logger.info(
+                "工作池",
+                `[${this.name}] 使用代理: ${this.proxyConfig.type}://${this.proxyConfig.host}:${this.proxyConfig.port}`
+            );
         } else {
-            logger.info('工作池', `[${this.name}] 直连模式（无代理）`);
+            logger.info("工作池", `[${this.name}] 直连模式（无代理）`);
         }
 
         if (sharedBrowser) {
@@ -112,7 +120,7 @@ export class Worker {
      * @private
      */
     async _initWithSharedBrowser(sharedBrowser, targetUrl, navigationHandler) {
-        logger.info('工作池', `[${this.name}] 复用已有浏览器，创建新标签页...`);
+        logger.info("工作池", `[${this.name}] 复用已有浏览器，创建新标签页...`);
         this.browser = sharedBrowser;
         this.page = await sharedBrowser.newPage();
         this.page.authState = { isHandlingAuth: false };
@@ -131,15 +139,19 @@ export class Worker {
         await this._navigateToTarget(targetUrl);
 
         if (navigationHandler) {
-            this.page.on('framenavigated', async () => {
-                try { await navigationHandler(this.page); } catch (e) { /* ignore */ }
+            this.page.on("framenavigated", async () => {
+                try {
+                    await navigationHandler(this.page);
+                } catch (e) {
+                    /* ignore */
+                }
             });
         }
 
         // 监听标签页关闭事件，自动重新创建（仅针对共享者）
         this._registerPageCloseHandler();
 
-        logger.info('工作池', `[${this.name}] 初始化完成`);
+        logger.info("工作池", `[${this.name}] 初始化完成`);
     }
 
     /**
@@ -149,16 +161,16 @@ export class Worker {
     _registerPageCloseHandler() {
         if (!this.page) return;
 
-        this.page.on('close', async () => {
+        this.page.on("close", async () => {
             // 如果浏览器还在运行，说明只是标签页被关闭
             if (this.browser && !this.browser.isClosed?.()) {
-                logger.warn('工作池', `[${this.name}] 标签页已关闭，正在重新创建...`);
+                logger.warn("工作池", `[${this.name}] 标签页已关闭，正在重新创建...`);
                 this.initialized = false;
                 this.page = null;
                 try {
                     await this._recreatePage();
                 } catch (e) {
-                    logger.error('工作池', `[${this.name}] 重新创建标签页失败: ${e.message}`);
+                    logger.error("工作池", `[${this.name}] 重新创建标签页失败: ${e.message}`);
                 }
             }
         });
@@ -176,11 +188,15 @@ export class Worker {
         if (humanizeCursorMode === true) {
             this.page.cursor = createCursor(this.page);
         }
-        await this._navigateToTarget(this._targetUrl || 'about:blank');
+        await this._navigateToTarget(this._targetUrl || "about:blank");
 
         if (this._navigationHandler) {
-            this.page.on('framenavigated', async () => {
-                try { await this._navigationHandler(this.page); } catch (e) { /* ignore */ }
+            this.page.on("framenavigated", async () => {
+                try {
+                    await this._navigationHandler(this.page);
+                } catch (e) {
+                    /* ignore */
+                }
             });
         }
 
@@ -188,7 +204,7 @@ export class Worker {
         this._registerPageCloseHandler();
 
         this.initialized = true;
-        logger.info('工作池', `[${this.name}] 标签页已成功重新创建`);
+        logger.info("工作池", `[${this.name}] 标签页已成功重新创建`);
     }
 
     /**
@@ -212,8 +228,12 @@ export class Worker {
         }
 
         if (navigationHandler) {
-            this.page.on('framenavigated', async () => {
-                try { await navigationHandler(this.page); } catch (e) { /* ignore */ }
+            this.page.on("framenavigated", async () => {
+                try {
+                    await navigationHandler(this.page);
+                } catch (e) {
+                    /* ignore */
+                }
             });
         }
 
@@ -221,21 +241,21 @@ export class Worker {
         this._navigationHandler = navigationHandler;
         this._targetUrl = targetUrl;
 
-        logger.info('工作池', `[${this.name}] 正在连接目标页面...`);
+        logger.info("工作池", `[${this.name}] 正在连接目标页面...`);
         await this._navigateToTarget(targetUrl);
 
         // 登录模式：注册浏览器关闭事件（不阻塞，关闭后退出进程）
-        const isLoginMode = process.argv.some(arg => arg.startsWith('-login'));
+        const isLoginMode = process.argv.some((arg) => arg.startsWith("-login"));
         if (isLoginMode) {
-            logger.info('工作池', `[${this.name}] 登录模式已就绪，请在浏览器中完成登录`);
-            this.browser.on('close', () => {
-                logger.info('工作池', `[${this.name}] 浏览器已关闭，登录模式结束`);
+            logger.info("工作池", `[${this.name}] 登录模式已就绪，请在浏览器中完成登录`);
+            this.browser.on("close", () => {
+                logger.info("工作池", `[${this.name}] 浏览器已关闭，登录模式结束`);
                 process.exit(0);
             });
         } else {
             // 非登录模式：注册断开事件，所有者负责重启并同步到共享者
-            this.browser.on('close', async () => {
-                logger.warn('工作池', `[${this.name}] 浏览器已断开连接，正在自动重新初始化...`);
+            this.browser.on("close", async () => {
+                logger.warn("工作池", `[${this.name}] 浏览器已断开连接，正在自动重新初始化...`);
 
                 // 标记自己和所有共享者为未初始化
                 this.initialized = false;
@@ -254,7 +274,10 @@ export class Worker {
                     // 为所有共享者创建新的标签页
                     for (const sharedWorker of this._sharedWorkers) {
                         try {
-                            logger.info('工作池', `[${sharedWorker.name}] 正在恢复共享浏览器连接...`);
+                            logger.info(
+                                "工作池",
+                                `[${sharedWorker.name}] 正在恢复共享浏览器连接...`
+                            );
                             sharedWorker.browser = this.browser;
                             sharedWorker.page = await this.browser.newPage();
                             sharedWorker.page.authState = { isHandlingAuth: false };
@@ -263,16 +286,21 @@ export class Worker {
                             if (sharedCursorMode === true) {
                                 sharedWorker.page.cursor = createCursor(sharedWorker.page);
                             }
-                            await sharedWorker._navigateToTarget(sharedWorker._targetUrl || 'about:blank');
-                            sharedWorker._registerPageCloseHandler();  // 重新注册标签页关闭处理器
+                            await sharedWorker._navigateToTarget(
+                                sharedWorker._targetUrl || "about:blank"
+                            );
+                            sharedWorker._registerPageCloseHandler(); // 重新注册标签页关闭处理器
                             sharedWorker.initialized = true;
-                            logger.info('工作池', `[${sharedWorker.name}] 共享浏览器连接已恢复`);
+                            logger.info("工作池", `[${sharedWorker.name}] 共享浏览器连接已恢复`);
                         } catch (e) {
-                            logger.error('工作池', `[${sharedWorker.name}] 恢复共享浏览器连接失败: ${e.message}`);
+                            logger.error(
+                                "工作池",
+                                `[${sharedWorker.name}] 恢复共享浏览器连接失败: ${e.message}`
+                            );
                         }
                     }
                 } catch (e) {
-                    logger.error('工作池', `[${this.name}] 自动重新初始化失败: ${e.message}`);
+                    logger.error("工作池", `[${this.name}] 自动重新初始化失败: ${e.message}`);
                 }
             });
 
@@ -280,7 +308,7 @@ export class Worker {
             this._registerPageCloseHandler();
         }
 
-        logger.info('工作池', `[${this.name}] 初始化完成`);
+        logger.info("工作池", `[${this.name}] 初始化完成`);
     }
 
     /**
@@ -288,26 +316,38 @@ export class Worker {
      * @private
      */
     async _navigateToTarget(targetUrl) {
-        if (this.type === 'merge') {
+        if (this.type === "merge") {
             let gotoSuccess = false;
             for (const type of this.mergeTypes) {
                 const url = registry.getTargetUrl(type, this.globalConfig, this.workerConfig);
                 if (!url) continue;
-                const gotoResult = await tryGotoWithCheck(this.page, url, { timeout: 30000 });
+                const gotoResult = await tryGotoWithCheck(this.page, url, {
+                    timeout: 30000
+                });
                 if (!gotoResult.error) {
                     gotoSuccess = true;
-                    logger.debug('工作池', `[${this.name}] 使用 ${type} 适配器初始化成功`);
+                    logger.debug("工作池", `[${this.name}] 使用 ${type} 适配器初始化成功`);
                     break;
                 }
-                logger.warn('工作池', `[${this.name}] ${type} 网站不可用，尝试下一个...`, { error: gotoResult.error });
+                logger.warn("工作池", `[${this.name}] ${type} 网站不可用，尝试下一个...`, {
+                    error: gotoResult.error
+                });
             }
             if (!gotoSuccess) {
-                logger.warn('工作池', `[${this.name}] 所有适配器网站当前不可用，但 Worker 仍将初始化（请求时可能会失败）`);
+                logger.warn(
+                    "工作池",
+                    `[${this.name}] 所有适配器网站当前不可用，但 Worker 仍将初始化（请求时可能会失败）`
+                );
             }
         } else {
-            const gotoResult = await tryGotoWithCheck(this.page, targetUrl, { timeout: 60000 });
+            const gotoResult = await tryGotoWithCheck(this.page, targetUrl, {
+                timeout: 60000
+            });
             if (gotoResult.error) {
-                logger.warn('工作池', `[${this.name}] 目标网站当前不可用: ${gotoResult.error}，但 Worker 仍将初始化`);
+                logger.warn(
+                    "工作池",
+                    `[${this.name}] 目标网站当前不可用: ${gotoResult.error}，但 Worker 仍将初始化`
+                );
             }
         }
     }
@@ -316,14 +356,14 @@ export class Worker {
      * 检查是否支持指定模型
      */
     supports(modelId) {
-        if (this.type === 'merge') {
+        if (this.type === "merge") {
             // 检查任一适配器是否支持该模型
             for (const type of this.mergeTypes) {
                 if (registry.supportsModel(type, modelId)) return true;
             }
             // 支持 type/model 格式
-            if (modelId.includes('/')) {
-                const [specifiedType, actualModel] = modelId.split('/', 2);
+            if (modelId.includes("/")) {
+                const [specifiedType, actualModel] = modelId.split("/", 2);
                 if (this.mergeTypes.includes(specifiedType)) {
                     return registry.supportsModel(specifiedType, actualModel);
                 }
@@ -331,8 +371,8 @@ export class Worker {
             return false;
         } else {
             // 支持 type/model 格式
-            if (modelId.includes('/')) {
-                const [specifiedType, actualModel] = modelId.split('/', 2);
+            if (modelId.includes("/")) {
+                const [specifiedType, actualModel] = modelId.split("/", 2);
                 if (specifiedType === this.type) {
                     return registry.supportsModel(this.type, actualModel);
                 }
@@ -347,9 +387,9 @@ export class Worker {
      * @private
      */
     _getAdapterType(modelKey) {
-        if (this.type === 'merge') {
-            if (modelKey.includes('/')) {
-                const [specifiedType] = modelKey.split('/', 2);
+        if (this.type === "merge") {
+            if (modelKey.includes("/")) {
+                const [specifiedType] = modelKey.split("/", 2);
                 return this.mergeTypes.includes(specifiedType) ? specifiedType : this.mergeTypes[0];
             }
             // 找到第一个支持该模型的适配器
@@ -368,7 +408,7 @@ export class Worker {
         const failoverConfig = this.globalConfig.backend?.pool?.failover || {};
         const failoverEnabled = failoverConfig.enabled !== false;
 
-        if (this.type === 'merge' && failoverEnabled) {
+        if (this.type === "merge" && failoverEnabled) {
             return this._generateWithFailover(ctx, prompt, paths, modelId, meta, failoverConfig);
         }
 
@@ -382,8 +422,8 @@ export class Worker {
 
         // 处理 type/model 格式，提取实际 modelId
         let actualModelId = modelId;
-        if (modelId.includes('/')) {
-            const parts = modelId.split('/', 2);
+        if (modelId.includes("/")) {
+            const parts = modelId.split("/", 2);
             actualModelId = parts[1];
         }
 
@@ -403,13 +443,23 @@ export class Worker {
             return { error: `Worker [${this.name}] 不支持模型: ${modelId}` };
         }
 
-        const maxAttempts = maxRetries === 0 ? candidateTypes.length : Math.min(maxRetries + 1, candidateTypes.length);
+        const maxAttempts =
+            maxRetries === 0
+                ? candidateTypes.length
+                : Math.min(maxRetries + 1, candidateTypes.length);
         let lastError = null;
         let lastRetryable = undefined;
 
         for (let i = 0; i < maxAttempts; i++) {
             const { type, modelId: actualModelId } = candidateTypes[i];
-            const result = await this._executeAdapter(ctx, type, actualModelId, prompt, paths, meta);
+            const result = await this._executeAdapter(
+                ctx,
+                type,
+                actualModelId,
+                prompt,
+                paths,
+                meta
+            );
 
             if (!result.error) {
                 return result;
@@ -420,15 +470,24 @@ export class Worker {
 
             // 如果明确标记为不可重试（如内容安全问题），立即返回
             if (result.retryable === false) {
-                return { error: `所有支持该模型的适配器都无法使用: ${lastError}`, retryable: false };
+                return {
+                    error: `所有支持该模型的适配器都无法使用: ${lastError}`,
+                    retryable: false
+                };
             }
 
             if (i < maxAttempts - 1) {
-                logger.warn('工作池', `[${this.name}] ${type} 失败，尝试下一个适配器...`, { error: lastError, ...meta });
+                logger.warn("工作池", `[${this.name}] ${type} 失败，尝试下一个适配器...`, {
+                    error: lastError,
+                    ...meta
+                });
             }
         }
 
-        return { error: `所有支持该模型的适配器都无法使用: ${lastError}`, retryable: lastRetryable };
+        return {
+            error: `所有支持该模型的适配器都无法使用: ${lastError}`,
+            retryable: lastRetryable
+        };
     }
 
     /**
@@ -438,9 +497,12 @@ export class Worker {
     _getCandidateTypes(modelKey) {
         const candidates = [];
 
-        if (modelKey.includes('/')) {
-            const [specifiedType, actualModel] = modelKey.split('/', 2);
-            if (this.mergeTypes.includes(specifiedType) && registry.supportsModel(specifiedType, actualModel)) {
+        if (modelKey.includes("/")) {
+            const [specifiedType, actualModel] = modelKey.split("/", 2);
+            if (
+                this.mergeTypes.includes(specifiedType) &&
+                registry.supportsModel(specifiedType, actualModel)
+            ) {
                 candidates.push({ type: specifiedType, modelId: actualModel });
             }
             return candidates;
@@ -463,11 +525,14 @@ export class Worker {
     async _executeAdapter(ctx, type, modelId, prompt, paths, meta) {
         // 检查 Worker 是否已初始化（浏览器崩溃后会被标记为 false）
         if (!this.initialized || !this.page || this.page.isClosed()) {
-            logger.info('工作池', `[${this.name}] 浏览器已断开，正在自动重新初始化...`, meta);
+            logger.info("工作池", `[${this.name}] 浏览器已断开，正在自动重新初始化...`, meta);
             try {
                 await this._reinit();
             } catch (e) {
-                logger.error('工作池', `[${this.name}] 重新初始化失败`, { error: e.message, ...meta });
+                logger.error("工作池", `[${this.name}] 重新初始化失败`, {
+                    error: e.message,
+                    ...meta
+                });
                 return { error: `Worker 重新初始化失败: ${e.message}` };
             }
         }
@@ -477,7 +542,7 @@ export class Worker {
             return { error: `适配器不存在: ${type}` };
         }
 
-        logger.info('工作池', `[${this.name}] 执行任务 -> ${type}/${modelId}`, meta);
+        logger.info("工作池", `[${this.name}] 执行任务 -> ${type}/${modelId}`, meta);
 
         const subContext = {
             ...ctx,
@@ -509,16 +574,19 @@ export class Worker {
         this.page = null;
 
         // 使用保存的参数重新初始化
-        await this._initNewBrowser(this._targetUrl || 'about:blank', this._navigationHandler || null);
+        await this._initNewBrowser(
+            this._targetUrl || "about:blank",
+            this._navigationHandler || null
+        );
         this.initialized = true;
-        logger.info('工作池', `[${this.name}] 浏览器已成功重新初始化`);
+        logger.info("工作池", `[${this.name}] 浏览器已成功重新初始化`);
     }
 
     /**
      * 获取支持的模型列表
      */
     getModels() {
-        if (this.type === 'merge') {
+        if (this.type === "merge") {
             const allModels = [];
             const seenIds = new Set();
 
@@ -528,7 +596,7 @@ export class Worker {
                     for (const m of result.data) {
                         if (!seenIds.has(m.id)) {
                             seenIds.add(m.id);
-                            allModels.push({ ...m, owned_by: 'internal_server' });
+                            allModels.push({ ...m, owned_by: "internal_server" });
                         }
                     }
                 }
@@ -554,7 +622,7 @@ export class Worker {
             const allModels = [];
 
             for (const m of models) {
-                allModels.push({ ...m, owned_by: 'internal_server' });
+                allModels.push({ ...m, owned_by: "internal_server" });
             }
 
             for (const m of models) {
@@ -575,9 +643,9 @@ export class Worker {
     getImagePolicy(modelKey) {
         const policies = new Set();
 
-        if (this.type === 'merge') {
-            if (modelKey.includes('/')) {
-                const [specifiedType, actualModel] = modelKey.split('/', 2);
+        if (this.type === "merge") {
+            if (modelKey.includes("/")) {
+                const [specifiedType, actualModel] = modelKey.split("/", 2);
                 if (this.mergeTypes.includes(specifiedType)) {
                     return registry.getImagePolicy(specifiedType, actualModel);
                 }
@@ -593,19 +661,19 @@ export class Worker {
         }
 
         // 宽松策略：只要有一个 optional 就返回 optional
-        if (policies.has('optional')) return 'optional';
-        if (policies.has('required')) return 'required';
-        if (policies.has('forbidden')) return 'forbidden';
-        return 'optional';
+        if (policies.has("optional")) return "optional";
+        if (policies.has("required")) return "required";
+        if (policies.has("forbidden")) return "forbidden";
+        return "optional";
     }
 
     /**
      * 获取模型类型
      */
     getModelType(modelKey) {
-        if (this.type === 'merge') {
-            if (modelKey.includes('/')) {
-                const [specifiedType, actualModel] = modelKey.split('/', 2);
+        if (this.type === "merge") {
+            if (modelKey.includes("/")) {
+                const [specifiedType, actualModel] = modelKey.split("/", 2);
                 if (this.mergeTypes.includes(specifiedType)) {
                     return registry.getModelType(specifiedType, actualModel);
                 }
@@ -615,7 +683,7 @@ export class Worker {
                     return registry.getModelType(type, modelKey);
                 }
             }
-            return 'image';
+            return "image";
         } else {
             return registry.getModelType(this.type, modelKey);
         }
@@ -625,22 +693,31 @@ export class Worker {
      * 导航到监控页面（空闲时）
      */
     async navigateToMonitor() {
-        if (this.type !== 'merge' || !this.mergeMonitor) return;
+        if (this.type !== "merge" || !this.mergeMonitor) return;
         if (!this.page || this.page.isClosed()) return;
 
-        const targetUrl = registry.getTargetUrl(this.mergeMonitor, this.globalConfig, this.workerConfig);
+        const targetUrl = registry.getTargetUrl(
+            this.mergeMonitor,
+            this.globalConfig,
+            this.workerConfig
+        );
         if (!targetUrl) return;
 
         const currentUrl = this.page.url();
         try {
             if (currentUrl.includes(new URL(targetUrl).hostname)) return;
-        } catch (e) { return; }
-
-        logger.info('工作池', `[${this.name}] 空闲，跳转监控: ${this.mergeMonitor}`);
-        try {
-            await this.page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
         } catch (e) {
-            logger.warn('工作池', `[${this.name}] 监控跳转失败: ${e.message}`);
+            return;
+        }
+
+        logger.info("工作池", `[${this.name}] 空闲，跳转监控: ${this.mergeMonitor}`);
+        try {
+            await this.page.goto(targetUrl, {
+                waitUntil: "domcontentloaded",
+                timeout: 30000
+            });
+        } catch (e) {
+            logger.warn("工作池", `[${this.name}] 监控跳转失败: ${e.message}`);
         }
     }
 
@@ -651,7 +728,7 @@ export class Worker {
         if (!this.page) throw new Error(`Worker [${this.name}] 未初始化`);
         const context = this.page.context();
         if (domain) {
-            return await context.cookies(domain.startsWith('http') ? domain : `https://${domain}`);
+            return await context.cookies(domain.startsWith("http") ? domain : `https://${domain}`);
         }
         return await context.cookies();
     }

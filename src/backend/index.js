@@ -9,14 +9,14 @@
  * - `getCookies(workerName, domain)` - 获取指定 Worker 的 Cookies
  */
 
-import fs from 'fs';
-import path from 'path';
-import { loadConfig } from '../config/index.js';
-import { PoolManager } from './pool/index.js';
-import { logger } from '../utils/logger.js';
+import fs from "fs";
+import path from "path";
+import { loadConfig } from "../config/index.js";
+import { PoolManager } from "./pool/index.js";
+import { logger } from "../utils/logger.js";
 
 // --- 集中管理的路径常量 ---
-const TEMP_DIR = path.join(process.cwd(), 'data', 'temp');
+const TEMP_DIR = path.join(process.cwd(), "data", "temp");
 
 // 确保临时目录存在
 if (!fs.existsSync(TEMP_DIR)) {
@@ -39,7 +39,7 @@ export function getBackend() {
     };
 
     return {
-        name: 'pool',
+        name: "pool",
         config,
         TEMP_DIR,
 
@@ -69,7 +69,7 @@ export function getBackend() {
          */
         generate: async (ctx, prompt, paths, modelId, meta) => {
             if (!poolManager) {
-                return { error: 'Pool 未初始化' };
+                return { error: "Pool 未初始化" };
             }
             return await poolManager.generate(ctx, prompt, paths, modelId, meta);
         },
@@ -80,7 +80,7 @@ export function getBackend() {
          */
         getModels: () => {
             if (!poolManager) {
-                return { object: 'list', data: [] };
+                return { object: "list", data: [] };
             }
             return poolManager.getModels();
         },
@@ -92,7 +92,7 @@ export function getBackend() {
          */
         getImagePolicy: (modelKey) => {
             if (!poolManager) {
-                return 'optional';
+                return "optional";
             }
             return poolManager.getImagePolicy(modelKey);
         },
@@ -104,7 +104,7 @@ export function getBackend() {
          */
         getModelType: (modelKey) => {
             if (!poolManager) {
-                return 'image';
+                return "image";
             }
             return poolManager.getModelType(modelKey);
         },
@@ -117,7 +117,7 @@ export function getBackend() {
          */
         getCookies: async (workerName, domain) => {
             if (!poolManager) {
-                throw new Error('Pool 未初始化');
+                throw new Error("Pool 未初始化");
             }
             return await poolManager.getCookies(workerName, domain);
         },

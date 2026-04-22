@@ -17,9 +17,9 @@
  * @readonly
  */
 export const STRATEGIES = {
-    LEAST_BUSY: 'least_busy',
-    ROUND_ROBIN: 'round_robin',
-    RANDOM: 'random',
+    LEAST_BUSY: "least_busy",
+    ROUND_ROBIN: "round_robin",
+    RANDOM: "random"
 };
 
 // ==========================================

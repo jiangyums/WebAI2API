@@ -3,11 +3,11 @@
  * @description 按日期存储成功/失败请求计数，支持日期范围查询和删除
  */
 
-import { promises as fs } from 'fs';
-import path from 'path';
+import { promises as fs } from "fs";
+import path from "path";
 
 // 日志目录
-const LOG_DIR = path.join(process.cwd(), 'data', 'logs');
+const LOG_DIR = path.join(process.cwd(), "data", "logs");
 
 /**
  * 获取指定日期的统计文件路径
@@ -25,8 +25,8 @@ function getStatsFilePath(date) {
 function getTodayDateStr() {
     const now = new Date();
     const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
 }
 
@@ -40,7 +40,9 @@ let todayDate = getTodayDateStr();
 async function ensureLogDir() {
     try {
         await fs.mkdir(LOG_DIR, { recursive: true });
-    } catch { /* 忽略已存在错误 */ }
+    } catch {
+        /* 忽略已存在错误 */
+    }
 }
 
 /**
@@ -79,7 +81,7 @@ export async function loadTodayStats() {
     const filePath = getStatsFilePath(todayDate);
 
     try {
-        const data = await fs.readFile(filePath, 'utf-8');
+        const data = await fs.readFile(filePath, "utf-8");
         todayStats = JSON.parse(data);
     } catch {
         todayStats = { success: 0, failed: 0 };
@@ -133,11 +135,11 @@ export async function getStatsRange(startDate, endDate) {
     const end = new Date(endDate);
 
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const dateStr = d.toISOString().split('T')[0];
+        const dateStr = d.toISOString().split("T")[0];
         const filePath = getStatsFilePath(dateStr);
 
         try {
-            const data = await fs.readFile(filePath, 'utf-8');
+            const data = await fs.readFile(filePath, "utf-8");
             const stats = JSON.parse(data);
             result.success += stats.success || 0;
             result.failed += stats.failed || 0;
@@ -163,7 +165,7 @@ export async function clearStatsRange(startDate, endDate) {
     const end = new Date(endDate);
 
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const dateStr = d.toISOString().split('T')[0];
+        const dateStr = d.toISOString().split("T")[0];
         const filePath = getStatsFilePath(dateStr);
 
         try {

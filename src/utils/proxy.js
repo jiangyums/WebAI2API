@@ -3,13 +3,13 @@
  * @description 将配置中的 HTTP/SOCKS5 代理转换为 Playwright 可用的代理配置，并在需要时通过 proxy-chain 搭建本地 HTTP 代理桥接。
  */
 
-import { anonymizeProxy, closeAnonymizedProxy } from 'proxy-chain';
-import { logger } from './logger.js';
+import { anonymizeProxy, closeAnonymizedProxy } from "proxy-chain";
+import { logger } from "./logger.js";
 
 // 全局代理状态：用于清理 proxy-chain 创建的本地代理资源
 const proxyState = {
-    anonymizedProxyUrl: null,  // 转换后的 HTTP 代理地址
-    originalProxyUrl: null      // 原始代理地址
+    anonymizedProxyUrl: null, // 转换后的 HTTP 代理地址
+    originalProxyUrl: null // 原始代理地址
 };
 
 /**
@@ -31,7 +31,7 @@ export function buildProxyUrl(proxyConfig) {
     }
 
     // 构建不带认证的代理 URL
-    if (type === 'socks5') {
+    if (type === "socks5") {
         return `socks5://${host}:${port}`;
     }
 
@@ -54,30 +54,30 @@ export async function getHttpProxy(proxyConfig) {
     const originalUrl = buildProxyUrl(proxyConfig);
 
     // 如果是 HTTP 代理，直接返回
-    if (type === 'http') {
-        logger.debug('代理器', `使用 HTTP 代理: ${host}:${port}`);
+    if (type === "http") {
+        logger.debug("代理器", `使用 HTTP 代理: ${host}:${port}`);
         return originalUrl;
     }
 
     // 如果是 SOCKS5 代理，需要转换为 HTTP 代理
-    if (type === 'socks5') {
+    if (type === "socks5") {
         try {
-            logger.info('代理器', `检测到 SOCKS5 代理，正在转换为 HTTP 代理: ${host}:${port}`);
+            logger.info("代理器", `检测到 SOCKS5 代理，正在转换为 HTTP 代理: ${host}:${port}`);
             const httpProxyUrl = await anonymizeProxy(originalUrl);
 
             // 保存状态用于后续清理
             proxyState.anonymizedProxyUrl = httpProxyUrl;
             proxyState.originalProxyUrl = originalUrl;
 
-            logger.info('代理器', `SOCKS5 代理已转换为 HTTP 代理: ${httpProxyUrl}`);
+            logger.info("代理器", `SOCKS5 代理已转换为 HTTP 代理: ${httpProxyUrl}`);
             return httpProxyUrl;
         } catch (error) {
-            logger.error('代理器', `SOCKS5 代理转换失败: ${error.message}`);
+            logger.error("代理器", `SOCKS5 代理转换失败: ${error.message}`);
             throw error;
         }
     }
 
-    logger.warn('代理器', `不支持的代理类型: ${type}`);
+    logger.warn("代理器", `不支持的代理类型: ${type}`);
     return null;
 }
 
@@ -100,18 +100,18 @@ export async function getBrowserProxy(proxyConfig) {
     let proxyUrl;
     if (user && passwd) {
         // 带认证的代理格式: protocol://user:passwd@host:port
-        const protocol = type === 'socks5' ? 'socks5' : 'http';
+        const protocol = type === "socks5" ? "socks5" : "http";
         proxyUrl = `${protocol}://${encodeURIComponent(user)}:${encodeURIComponent(passwd)}@${host}:${port}`;
     } else {
         // 不带认证的代理格式: protocol://host:port
-        if (type === 'socks5') {
+        if (type === "socks5") {
             proxyUrl = `socks5://${host}:${port}`;
         } else {
             proxyUrl = `http://${host}:${port}`;
         }
     }
 
-    logger.info('代理器', `代理配置: ${type}://${host}:${port}${user ? ' (带认证)' : ''}`);
+    logger.info("代理器", `代理配置: ${type}://${host}:${port}${user ? " (带认证)" : ""}`);
 
     // 直接返回字符串格式，Camoufox 会正确解析
     return proxyUrl;
@@ -124,15 +124,15 @@ export async function getBrowserProxy(proxyConfig) {
 export async function cleanupProxy() {
     if (proxyState.anonymizedProxyUrl) {
         try {
-            logger.debug('代理器', '正在关闭本地代理桥接...');
+            logger.debug("代理器", "正在关闭本地代理桥接...");
             await closeAnonymizedProxy(proxyState.anonymizedProxyUrl, true);
-            logger.debug('代理器', '本地代理桥接已关闭');
+            logger.debug("代理器", "本地代理桥接已关闭");
 
             // 清理状态
             proxyState.anonymizedProxyUrl = null;
             proxyState.originalProxyUrl = null;
         } catch (error) {
-            logger.error('代理器', `关闭本地代理桥接失败: ${error.message}`);
+            logger.error("代理器", `关闭本地代理桥接失败: ${error.message}`);
         }
     }
 }

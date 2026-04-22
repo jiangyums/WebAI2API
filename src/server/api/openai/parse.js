@@ -3,11 +3,11 @@
  * @description 负责解析聊天请求、提取提示词和处理图片
  */
 
-import fs from 'fs';
-import path from 'path';
-import sharp from 'sharp';
-import { IMAGE_POLICY } from '../../../backend/registry.js';
-import { ERROR_CODES, getErrorMessage } from '../../errors.js';
+import fs from "fs";
+import path from "path";
+import sharp from "sharp";
+import { IMAGE_POLICY } from "../../../backend/registry.js";
+import { ERROR_CODES, getErrorMessage } from "../../errors.js";
 
 /**
  * 构造解析错误结果
@@ -88,27 +88,33 @@ export async function parseRequest(data, options) {
     if (data.model) {
         // 检查模型是否在支持列表中
         const supportedModels = getSupportedModels();
-        const isSupported = supportedModels.data.some(m => m.id === data.model);
+        const isSupported = supportedModels.data.some((m) => m.id === data.model);
 
         if (isSupported) {
             modelKey = data.model;
-            logger.info('服务器', `触发模型: ${data.model}`, { id: requestId });
+            logger.info("服务器", `触发模型: ${data.model}`, { id: requestId });
 
             // 判定是否为文本模式
-            const type = getModelType ? getModelType(data.model) : 'image';
-            isTextMode = type === 'text';
+            const type = getModelType ? getModelType(data.model) : "image";
+            isTextMode = type === "text";
 
             if (isTextMode) {
-                logger.info('服务器', '解析模式: 文本对话 (虚拟上下文构建)', { id: requestId });
+                logger.info("服务器", "解析模式: 文本对话 (虚拟上下文构建)", {
+                    id: requestId
+                });
             } else {
-                logger.info('服务器', '解析模式: 图像生成 (仅取最后一条)', { id: requestId });
+                logger.info("服务器", "解析模式: 图像生成 (仅取最后一条)", {
+                    id: requestId
+                });
             }
-
         } else {
-            return parseError(ERROR_CODES.INVALID_MODEL, `模型无效/后端 ${backendName} 不支持: ${data.model}`);
+            return parseError(
+                ERROR_CODES.INVALID_MODEL,
+                `模型无效/后端 ${backendName} 不支持: ${data.model}`
+            );
         }
     } else {
-        logger.info('服务器', '未指定模型，使用网页默认', { id: requestId });
+        logger.info("服务器", "未指定模型，使用网页默认", { id: requestId });
     }
 
     // ============================================================
@@ -121,30 +127,37 @@ export async function parseRequest(data, options) {
     // ============================================================
     // 分支 B: 生图模型解析 (原有逻辑)
     // ============================================================
-    return await parseImageRequest(messages, tempDir, imageLimit, modelKey, isStreaming, getImagePolicy);
+    return await parseImageRequest(
+        messages,
+        tempDir,
+        imageLimit,
+        modelKey,
+        isStreaming,
+        getImagePolicy
+    );
 }
 
 /**
  * 解析文本请求 (构建虚拟上下文)
  */
 async function parseTextRequest(messages, tempDir, imageLimit, modelId, isStreaming) {
-    let systemPrompt = '';
-    let historyPrompt = '';
-    let currentPrompt = '';
+    let systemPrompt = "";
+    let historyPrompt = "";
+    let currentPrompt = "";
 
     const imagePaths = [];
     let globalImageCount = 0;
 
     // 辅助函数：处理单条消息内容
     async function processContent(content) {
-        let textBuffer = '';
-        if (typeof content === 'string') {
+        let textBuffer = "";
+        if (typeof content === "string") {
             textBuffer += content;
         } else if (Array.isArray(content)) {
             for (const item of content) {
-                if (item.type === 'text') {
+                if (item.type === "text") {
                     textBuffer += item.text;
-                } else if (item.type === 'image_url' && item.image_url?.url) {
+                } else if (item.type === "image_url" && item.image_url?.url) {
                     globalImageCount++;
 
                     // 图片数量限制检查
@@ -154,7 +167,7 @@ async function parseTextRequest(messages, tempDir, imageLimit, modelId, isStream
                     }
 
                     const url = item.image_url.url;
-                    if (url.startsWith('data:image')) {
+                    if (url.startsWith("data:image")) {
                         const imagePath = await saveBase64Image(url, tempDir);
                         if (imagePath) {
                             imagePaths.push(imagePath);
@@ -173,7 +186,7 @@ async function parseTextRequest(messages, tempDir, imageLimit, modelId, isStream
     }
 
     // 1. 提取 System Prompt
-    const systemMsg = messages.find(m => m.role === 'system');
+    const systemMsg = messages.find((m) => m.role === "system");
     if (systemMsg) {
         const content = await processContent(systemMsg.content);
         if (content) {
@@ -185,7 +198,7 @@ async function parseTextRequest(messages, tempDir, imageLimit, modelId, isStream
     // 找到最后一条 user 消息的索引
     let lastUserIndex = -1;
     for (let i = messages.length - 1; i >= 0; i--) {
-        if (messages[i].role === 'user') {
+        if (messages[i].role === "user") {
             lastUserIndex = i;
             break;
         }
@@ -197,13 +210,13 @@ async function parseTextRequest(messages, tempDir, imageLimit, modelId, isStream
 
     // 3. 构建历史对话 (不包含 system 和 最后一条 user)
     const historyMessages = messages.filter((m, index) => {
-        return m.role !== 'system' && index < lastUserIndex;
+        return m.role !== "system" && index < lastUserIndex;
     });
 
     if (historyMessages.length > 0) {
         historyPrompt += `=== 历史对话 (滑动窗口或摘要) ===\n`;
         for (const msg of historyMessages) {
-            const roleName = msg.role === 'user' ? 'User' : 'AI';
+            const roleName = msg.role === "user" ? "User" : "AI";
             const content = await processContent(msg.content);
             historyPrompt += `${roleName}: ${content}\n`;
         }
@@ -242,31 +255,41 @@ async function parseTextRequest(messages, tempDir, imageLimit, modelId, isStream
 /**
  * 解析生图请求 (原有逻辑)
  */
-async function parseImageRequest(messages, tempDir, imageLimit, modelId, isStreaming, getImagePolicy) {
+async function parseImageRequest(
+    messages,
+    tempDir,
+    imageLimit,
+    modelId,
+    isStreaming,
+    getImagePolicy
+) {
     // 筛选用户消息
-    const userMessages = messages.filter(m => m.role === 'user');
+    const userMessages = messages.filter((m) => m.role === "user");
     if (userMessages.length === 0) {
         return parseError(ERROR_CODES.NO_USER_MESSAGES);
     }
 
     const lastMessage = userMessages[userMessages.length - 1];
 
-    let prompt = '';
+    let prompt = "";
     const imagePaths = [];
     let imageCount = 0;
 
     // 解析内容
     if (Array.isArray(lastMessage.content)) {
         for (const item of lastMessage.content) {
-            if (item.type === 'text') {
-                prompt += item.text + ' ';
-            } else if (item.type === 'image_url' && item.image_url?.url) {
+            if (item.type === "text") {
+                prompt += item.text + " ";
+            } else if (item.type === "image_url" && item.image_url?.url) {
                 imageCount++;
 
                 // 图片数量检查
                 if (imageLimit <= 10) {
                     if (imageCount > imageLimit) {
-                        return parseError(ERROR_CODES.TOO_MANY_IMAGES, `图片数量超过限制（最大 ${imageLimit} 张）`);
+                        return parseError(
+                            ERROR_CODES.TOO_MANY_IMAGES,
+                            `图片数量超过限制（最大 ${imageLimit} 张）`
+                        );
                     }
                 } else {
                     // imageLimit > 10：超过浏览器硬限制时忽略
@@ -277,7 +300,7 @@ async function parseImageRequest(messages, tempDir, imageLimit, modelId, isStrea
 
                 // 处理 data URL
                 const url = item.image_url.url;
-                if (url.startsWith('data:image')) {
+                if (url.startsWith("data:image")) {
                     const imagePath = await saveBase64Image(url, tempDir);
                     if (imagePath) {
                         imagePaths.push(imagePath);
@@ -328,11 +351,9 @@ async function saveBase64Image(dataUrl, tempDir) {
     }
 
     try {
-        const buffer = Buffer.from(matches[2], 'base64');
+        const buffer = Buffer.from(matches[2], "base64");
         // 压缩图片
-        const processedBuffer = await sharp(buffer)
-            .jpeg({ quality: 90 })
-            .toBuffer();
+        const processedBuffer = await sharp(buffer).jpeg({ quality: 90 }).toBuffer();
 
         const filename = `img_${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
         const filePath = path.join(tempDir, filename);

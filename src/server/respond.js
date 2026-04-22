@@ -3,7 +3,7 @@
  * @description 封装 JSON、SSE 响应和错误响应的统一处理函数
  */
 
-import { getErrorDetails } from './errors.js';
+import { getErrorDetails } from "./errors.js";
 
 /**
  * 发送 JSON 响应
@@ -13,7 +13,7 @@ import { getErrorDetails } from './errors.js';
  */
 export function sendJson(res, status, payload) {
     if (res.writableEnded) return;
-    res.writeHead(status, { 'Content-Type': 'application/json' });
+    res.writeHead(status, { "Content-Type": "application/json" });
     res.end(JSON.stringify(payload));
 }
 
@@ -46,20 +46,22 @@ export function sendSseDone(res) {
 export function sendHeartbeat(res, mode, modelName) {
     if (res.writableEnded) return;
 
-    if (mode === 'comment') {
+    if (mode === "comment") {
         res.write(`:keepalive\n\n`);
     } else {
         // content 模式：发送空 delta
         const chunk = {
-            id: 'chatcmpl-' + Date.now(),
-            object: 'chat.completion.chunk',
+            id: "chatcmpl-" + Date.now(),
+            object: "chat.completion.chunk",
             created: Math.floor(Date.now() / 1000),
-            model: modelName || 'default-model',
-            choices: [{
-                index: 0,
-                delta: { content: '' },
-                finish_reason: null
-            }]
+            model: modelName || "default-model",
+            choices: [
+                {
+                    index: 0,
+                    delta: { content: "" },
+                    finish_reason: null
+                }
+            ]
         };
         res.write(`data: ${JSON.stringify(chunk)}\n\n`);
     }
@@ -79,8 +81,8 @@ export function sendApiError(res, options) {
 
     // 获取错误详情
     const details = code ? getErrorDetails(code) : null;
-    const errorMessage = message || (details ? details.message : '未知错误');
-    const errorType = details?.type || 'server_error';
+    const errorMessage = message || (details ? details.message : "未知错误");
+    const errorType = details?.type || "server_error";
     const httpStatus = status || (details ? details.status : 500);
 
     // 构造 OpenAI 标准错误响应体
@@ -88,7 +90,7 @@ export function sendApiError(res, options) {
         error: {
             message: errorMessage,
             type: errorType,
-            code: code || 'INTERNAL_ERROR'
+            code: code || "INTERNAL_ERROR"
         }
     };
 
@@ -111,7 +113,7 @@ export function sendApiError(res, options) {
  */
 export function buildChatCompletion(content, modelName, reasoningContent) {
     const message = {
-        role: 'assistant',
+        role: "assistant",
         content: content
     };
     if (reasoningContent) {
@@ -119,15 +121,17 @@ export function buildChatCompletion(content, modelName, reasoningContent) {
     }
 
     return {
-        id: 'chatcmpl-' + Date.now(),
-        object: 'chat.completion',
+        id: "chatcmpl-" + Date.now(),
+        object: "chat.completion",
         created: Math.floor(Date.now() / 1000),
-        model: modelName || 'default-model',
-        choices: [{
-            index: 0,
-            message,
-            finish_reason: 'stop'
-        }]
+        model: modelName || "default-model",
+        choices: [
+            {
+                index: 0,
+                message,
+                finish_reason: "stop"
+            }
+        ]
     };
 }
 
@@ -139,21 +143,28 @@ export function buildChatCompletion(content, modelName, reasoningContent) {
  * @param {string} [reasoningContent] - 思考/推理过程内容 (OpenAI o1 格式)
  * @returns {object} OpenAI 格式的流式响应块
  */
-export function buildChatCompletionChunk(content, modelName, finishReason = 'stop', reasoningContent) {
+export function buildChatCompletionChunk(
+    content,
+    modelName,
+    finishReason = "stop",
+    reasoningContent
+) {
     const delta = { content };
     if (reasoningContent) {
         delta.reasoning_content = reasoningContent;
     }
 
     return {
-        id: 'chatcmpl-' + Date.now(),
-        object: 'chat.completion.chunk',
+        id: "chatcmpl-" + Date.now(),
+        object: "chat.completion.chunk",
         created: Math.floor(Date.now() / 1000),
-        model: modelName || 'default-model',
-        choices: [{
-            index: 0,
-            delta,
-            finish_reason: finishReason
-        }]
+        model: modelName || "default-model",
+        choices: [
+            {
+                index: 0,
+                delta,
+                finish_reason: finishReason
+            }
+        ]
     };
 }

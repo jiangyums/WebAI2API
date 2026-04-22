@@ -20,9 +20,9 @@
  * - `isPageValid` / `createPageCloseWatcher`：页面有效性与关闭/崩溃监听
  */
 
-import path from 'path';
-import { logger } from '../../utils/logger.js';
-import { TIMEOUTS } from '../../utils/constants.js';
+import path from "path";
+import { logger } from "../../utils/logger.js";
+import { TIMEOUTS } from "../../utils/constants.js";
 
 /**
  * 生成指定范围内的随机数
@@ -41,7 +41,7 @@ export function random(min, max) {
  * @returns {Promise<void>}
  */
 export function sleep(min, max) {
-    return new Promise(r => setTimeout(r, Math.floor(random(min, max))));
+    return new Promise((r) => setTimeout(r, Math.floor(random(min, max))));
 }
 
 /**
@@ -52,13 +52,13 @@ export function sleep(min, max) {
 export function getMimeType(filePath) {
     const ext = path.extname(filePath).toLowerCase();
     const map = {
-        '.png': 'image/png',
-        '.jpg': 'image/jpeg',
-        '.jpeg': 'image/jpeg',
-        '.gif': 'image/gif',
-        '.webp': 'image/webp'
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".gif": "image/gif",
+        ".webp": "image/webp"
     };
-    return map[ext] || 'application/octet-stream';
+    return map[ext] || "application/octet-stream";
 }
 
 /**
@@ -108,28 +108,36 @@ export function clamp(value, min, max) {
  */
 export async function queryDeep(page, selector, rootHandle = null) {
     // Playwright evaluateHandle 只接受一个参数，包装成数组传递
-    return await page.evaluateHandle(([sel, root]) => {
-        function find(node, s) {
-            if (!node) return null;
-            if (node instanceof Element && node.matches(s)) return node;
-            let found = node.querySelector(s);
-            if (found) return found;
-            if (node.shadowRoot) {
-                found = find(node.shadowRoot, s);
+    return await page.evaluateHandle(
+        ([sel, root]) => {
+            function find(node, s) {
+                if (!node) return null;
+                if (node instanceof Element && node.matches(s)) return node;
+                let found = node.querySelector(s);
                 if (found) return found;
-            }
-            const walker = document.createTreeWalker(node, NodeFilter.SHOW_ELEMENT, null, false);
-            while (walker.nextNode()) {
-                const child = walker.currentNode;
-                if (child.shadowRoot) {
-                    found = find(child.shadowRoot, s);
+                if (node.shadowRoot) {
+                    found = find(node.shadowRoot, s);
                     if (found) return found;
                 }
+                const walker = document.createTreeWalker(
+                    node,
+                    NodeFilter.SHOW_ELEMENT,
+                    null,
+                    false
+                );
+                while (walker.nextNode()) {
+                    const child = walker.currentNode;
+                    if (child.shadowRoot) {
+                        found = find(child.shadowRoot, s);
+                        if (found) return found;
+                    }
+                }
+                return null;
             }
-            return null;
-        }
-        return find(root || document.body, sel);
-    }, [selector, rootHandle]);
+            return find(root || document.body, sel);
+        },
+        [selector, rootHandle]
+    );
 }
 
 /**
@@ -144,7 +152,7 @@ export async function queryDeep(page, selector, rootHandle = null) {
  *   - 'random'/'button': 中心附近随机 (20%-80% x, 20%-80% y)
  * @returns {{x: number, y: number}} 计算出的坐标
  */
-export function getHumanClickPoint(box, type = 'random') {
+export function getHumanClickPoint(box, type = "random") {
     // 确保 box 有有效的尺寸
     if (!box || box.width <= 0 || box.height <= 0) {
         return { x: box?.x || 0, y: box?.y || 0 };
@@ -152,27 +160,27 @@ export function getHumanClickPoint(box, type = 'random') {
 
     let xRatio, yRatio;
     switch (type) {
-        case 'input':
+        case "input":
             // 输入框: 偏左 (5% - 40% 宽度), 偏底部 (60% - 90% 高度)
             xRatio = random(0.05, 0.4);
-            yRatio = random(0.60, 0.90);
+            yRatio = random(0.6, 0.9);
             break;
-        case 'center':
+        case "center":
             // 中心区域
             xRatio = random(0.4, 0.6);
             yRatio = random(0.4, 0.6);
             break;
-        case 'top-left':
+        case "top-left":
             // 偏左偏上
             xRatio = random(0.1, 0.3);
             yRatio = random(0.1, 0.3);
             break;
-        case 'top-right':
+        case "top-right":
             // 偏右偏上
             xRatio = random(0.7, 0.9);
             yRatio = random(0.1, 0.3);
             break;
-        case 'bottom-right':
+        case "bottom-right":
             // 偏右偏下
             xRatio = random(0.7, 0.9);
             yRatio = random(0.7, 0.9);
@@ -205,50 +213,53 @@ async function waitForElementStable(element, stableFrames = 20, timeout = 2000) 
     if (!element) return;
 
     try {
-        await element.evaluate((targetEl, { stableFrames, timeout }) => {
-            return new Promise((resolve) => {
-                let lastRect = targetEl.getBoundingClientRect();
-                let consecutiveStable = 0;
-                const startTime = performance.now();
+        await element.evaluate(
+            (targetEl, { stableFrames, timeout }) => {
+                return new Promise((resolve) => {
+                    let lastRect = targetEl.getBoundingClientRect();
+                    let consecutiveStable = 0;
+                    const startTime = performance.now();
 
-                function check() {
-                    // 1. 超时检查：如果超过总时间，不再等待直接返回，防止死循环
-                    if (performance.now() - startTime > timeout) {
-                        resolve();
-                        return;
-                    }
-
-                    const rect = targetEl.getBoundingClientRect();
-
-                    // 检查位置和大小是否变化 (容差 1px)
-                    const isSame =
-                        Math.abs(rect.x - lastRect.x) < 1 &&
-                        Math.abs(rect.y - lastRect.y) < 1 &&
-                        Math.abs(rect.width - lastRect.width) < 1 &&
-                        Math.abs(rect.height - lastRect.height) < 1;
-
-                    if (isSame) {
-                        consecutiveStable++;
-                        // 2. 只有连续 N 帧都不动才确定
-                        if (consecutiveStable >= stableFrames) {
+                    function check() {
+                        // 1. 超时检查：如果超过总时间，不再等待直接返回，防止死循环
+                        if (performance.now() - startTime > timeout) {
                             resolve();
                             return;
                         }
-                    } else {
-                        // 只要动了一次，计数器归零，重新开始计数
-                        consecutiveStable = 0;
-                        lastRect = rect;
+
+                        const rect = targetEl.getBoundingClientRect();
+
+                        // 检查位置和大小是否变化 (容差 1px)
+                        const isSame =
+                            Math.abs(rect.x - lastRect.x) < 1 &&
+                            Math.abs(rect.y - lastRect.y) < 1 &&
+                            Math.abs(rect.width - lastRect.width) < 1 &&
+                            Math.abs(rect.height - lastRect.height) < 1;
+
+                        if (isSame) {
+                            consecutiveStable++;
+                            // 2. 只有连续 N 帧都不动才确定
+                            if (consecutiveStable >= stableFrames) {
+                                resolve();
+                                return;
+                            }
+                        } else {
+                            // 只要动了一次，计数器归零，重新开始计数
+                            consecutiveStable = 0;
+                            lastRect = rect;
+                        }
+
+                        requestAnimationFrame(check);
                     }
 
-                    requestAnimationFrame(check);
-                }
-
-                // 3. 稍微延迟启动检测，给响应式框架留启动时间
-                setTimeout(() => {
-                    requestAnimationFrame(check);
-                }, 50);
-            });
-        }, { stableFrames, timeout });
+                    // 3. 稍微延迟启动检测，给响应式框架留启动时间
+                    setTimeout(() => {
+                        requestAnimationFrame(check);
+                    }, 50);
+                });
+            },
+            { stableFrames, timeout }
+        );
     } catch (e) {
         // 忽略错误，继续执行
     }
@@ -269,7 +280,7 @@ async function waitForElementStable(element, stableFrames = 20, timeout = 2000) 
 export async function safeClick(page, target, options = {}) {
     const clickCount = options.clickCount || 1;
     const waitStable = options.waitStable !== false; // 默认 true
-    const selector = typeof target === 'string' ? target : '元素';
+    const selector = typeof target === "string" ? target : "元素";
     // humanizeCursorMode: false=禁用, true=ghost-cursor, "camou"=Camoufox内置
     // 只有 true 时才使用 ghost-cursor，其他情况都使用原生点击
     const useGhostCursor = page?._humanizeCursorMode === true && page?.cursor;
@@ -279,18 +290,16 @@ export async function safeClick(page, target, options = {}) {
     // 公式：基础超时 + 额外时间(50000ms / 速度)
     // 速度40时额外1.25s，速度10时额外5s，速度5时额外10s
     const baseTimeout = options.timeout || TIMEOUTS.ELEMENT_CLICK;
-    const timeout = useGhostCursor
-        ? baseTimeout + Math.ceil(50000 / cursorSpeed)
-        : baseTimeout;
+    const timeout = useGhostCursor ? baseTimeout + Math.ceil(50000 / cursorSpeed) : baseTimeout;
 
     // 元素定位函数（可重复调用以获取新鲜的 ElementHandle）
     const resolveElement = async () => {
-        if (typeof target === 'string') {
+        if (typeof target === "string") {
             // CSS selector
             const el = await page.$(target);
             if (!el) throw new Error(`未找到: ${target}`);
             return el;
-        } else if (typeof target.elementHandle === 'function') {
+        } else if (typeof target.elementHandle === "function") {
             // Locator (来自 page.getByRole, page.getByText 等)
             const el = await target.elementHandle();
             if (!el) throw new Error(`Locator 未匹配到元素`);
@@ -306,28 +315,28 @@ export async function safeClick(page, target, options = {}) {
 
     const doClick = async () => {
         // 1. 首次获取元素（用于滚动和等待稳定）
-        const logKey = `${selector} ${target} ${options.bias || 'random'}`;
-        logger.debug('浏览器', `[safeClick] 开始查找: ${logKey}`);
+        const logKey = `${selector} ${target} ${options.bias || "random"}`;
+        logger.debug("浏览器", `[safeClick] 开始查找: ${logKey}`);
         let el = await resolveElement();
-        logger.debug('浏览器', `[safeClick] 已找到 ${logKey}`);
+        logger.debug("浏览器", `[safeClick] 已找到 ${logKey}`);
 
         // 2. 确保元素在可视区域内
-        logger.debug('浏览器', `[safeClick] 滚动到可视区域...`);
+        logger.debug("浏览器", `[safeClick] 滚动到可视区域...`);
         if (aborted) return;
-        await el.scrollIntoViewIfNeeded().catch(() => { });
+        await el.scrollIntoViewIfNeeded().catch(() => {});
         if (aborted) return;
 
         // 3. 如果开启了布局稳定等待，等待元素位置稳定
         if (waitStable) {
-            logger.debug('浏览器', `[safeClick] 等待元素稳定...`);
+            logger.debug("浏览器", `[safeClick] 等待元素稳定...`);
             await waitForElementStable(el);
             if (aborted) return;
-            logger.debug('浏览器', `[safeClick] 元素已稳定`);
+            logger.debug("浏览器", `[safeClick] 元素已稳定`);
 
             // 4. 重新获取元素引用（防止等待期间 DOM 变化导致 detached 错误）
             // 仅对 Locator 类型重新获取，ElementHandle 无法刷新
-            if (typeof target.elementHandle === 'function') {
-                logger.debug('浏览器', `[safeClick] 重新获取元素引用...`);
+            if (typeof target.elementHandle === "function") {
+                logger.debug("浏览器", `[safeClick] 重新获取元素引用...`);
                 el = await resolveElement();
             }
         }
@@ -337,25 +346,28 @@ export async function safeClick(page, target, options = {}) {
         if (useGhostCursor) {
             const box = await el.boundingBox();
             if (aborted) return;
-            logger.debug('浏览器', `[safeClick] boundingBox: ${JSON.stringify(box)}`);
+            logger.debug("浏览器", `[safeClick] boundingBox: ${JSON.stringify(box)}`);
             if (box) {
-                const { x, y } = getHumanClickPoint(box, options.bias || 'random');
-                logger.debug('浏览器', `[safeClick] 移动鼠标到 (${x.toFixed(0)}, ${y.toFixed(0)})...`);
+                const { x, y } = getHumanClickPoint(box, options.bias || "random");
+                logger.debug(
+                    "浏览器",
+                    `[safeClick] 移动鼠标到 (${x.toFixed(0)}, ${y.toFixed(0)})...`
+                );
                 await page.cursor.moveTo({ x, y }, { moveSpeed: cursorSpeed });
                 if (aborted) return;
-                logger.debug('浏览器', `[safeClick] 执行点击...`);
+                logger.debug("浏览器", `[safeClick] 执行点击...`);
                 await page.mouse.click(x, y, { clickCount });
                 return;
             }
             // 如果无法获取 box，降级到默认点击
-            logger.debug('浏览器', `[safeClick] boundingBox 为 null，降级到 cursor.click`);
+            logger.debug("浏览器", `[safeClick] boundingBox 为 null，降级到 cursor.click`);
             await page.cursor.click(el);
             return;
         }
 
         // 6. 使用原生点击 (humanizeCursor=false 或 "camou")
         const mode = page?._humanizeCursorMode;
-        logger.debug('浏览器', `[safeClick] humanizeCursor=${mode} 使用原生点击`);
+        logger.debug("浏览器", `[safeClick] humanizeCursor=${mode} 使用原生点击`);
         // force: true 跳过可操作性检查（遮挡检测等），避免在复杂页面卡住
         await el.click({ clickCount, force: true });
     };
@@ -366,20 +378,16 @@ export async function safeClick(page, target, options = {}) {
         const timeoutPromise = new Promise((_, reject) => {
             timeoutId = setTimeout(() => {
                 aborted = true;
-                reject(new Error('CLICK_TIMEOUT'));
+                reject(new Error("CLICK_TIMEOUT"));
             }, timeout);
         });
 
-        await Promise.race([
-            doClick().finally(() => clearTimeout(timeoutId)),
-            timeoutPromise
-        ]);
+        await Promise.race([doClick().finally(() => clearTimeout(timeoutId)), timeoutPromise]);
     } catch (err) {
         clearTimeout(timeoutId);
         throw new Error(`点击操作失败 (${selector}): ${err.message}`);
     }
 }
-
 
 /**
  * 安全滚动 (包含拟人化移动和滚轮滚动)
@@ -397,11 +405,11 @@ export async function safeScroll(page, target, options = {}) {
         let el;
 
         // 判断输入类型
-        if (typeof target === 'string') {
+        if (typeof target === "string") {
             // CSS selector
             el = await page.$(target);
             if (!el) throw new Error(`未找到: ${target}`);
-        } else if (typeof target.elementHandle === 'function') {
+        } else if (typeof target.elementHandle === "function") {
             // Locator (来自 page.getByRole, page.getByText 等)
             el = await target.elementHandle();
             if (!el) throw new Error(`Locator 未匹配到元素`);
@@ -418,7 +426,7 @@ export async function safeScroll(page, target, options = {}) {
         if (page.cursor) {
             const box = await el.boundingBox();
             if (box) {
-                const { x, y } = getHumanClickPoint(box, options.bias || 'random');
+                const { x, y } = getHumanClickPoint(box, options.bias || "random");
                 await page.cursor.moveTo({ x, y });
                 await page.mouse.wheel(deltaX, deltaY);
                 return;
@@ -455,7 +463,7 @@ export async function humanType(page, target, text, options = {}) {
         let el;
 
         // 判断是 selector 还是 ElementHandle
-        if (typeof target === 'string') {
+        if (typeof target === "string") {
             el = await page.$(target);
             if (!el) throw new Error(`Element not found: ${target}`);
         } else {
@@ -474,28 +482,28 @@ export async function humanType(page, target, text, options = {}) {
             const nextChar = text[i + 1];
 
             // 处理换行符 (避免触发发送)
-            if (char === '\r' && nextChar === '\n') {
+            if (char === "\r" && nextChar === "\n") {
                 // Windows 换行符 (\r\n)
-                await page.keyboard.down('Shift');
-                await page.keyboard.press('Enter');
-                await page.keyboard.up('Shift');
+                await page.keyboard.down("Shift");
+                await page.keyboard.press("Enter");
+                await page.keyboard.up("Shift");
                 i++; // 跳过 \n
                 await sleep(30, 100);
                 continue;
-            } else if (char === '\n' || char === '\r') {
+            } else if (char === "\n" || char === "\r") {
                 // Unix/Mac 换行符 (\n 或 \r)
-                await page.keyboard.down('Shift');
-                await page.keyboard.press('Enter');
-                await page.keyboard.up('Shift');
+                await page.keyboard.down("Shift");
+                await page.keyboard.press("Enter");
+                await page.keyboard.up("Shift");
                 await sleep(30, 100);
                 continue;
             }
 
             // 模拟错字 (5% 概率)
             if (Math.random() < 0.05) {
-                await page.keyboard.type('x', { delay: random(50, 150) });
+                await page.keyboard.type("x", { delay: random(50, 150) });
                 await sleep(100, 300);
-                await page.keyboard.press('Backspace', { delay: random(50, 100) });
+                await page.keyboard.press("Backspace", { delay: random(50, 100) });
             }
             await page.keyboard.type(char, { delay: random(30, 100) });
             // 随机击键间隔
@@ -512,17 +520,17 @@ export async function humanType(page, target, text, options = {}) {
             const nextChar = fakeText[i + 1];
 
             // 处理换行符 (避免触发发送)
-            if (char === '\r' && nextChar === '\n') {
-                await page.keyboard.down('Shift');
-                await page.keyboard.press('Enter');
-                await page.keyboard.up('Shift');
+            if (char === "\r" && nextChar === "\n") {
+                await page.keyboard.down("Shift");
+                await page.keyboard.press("Enter");
+                await page.keyboard.up("Shift");
                 i++; // 跳过 \n
                 await sleep(30, 100);
                 continue;
-            } else if (char === '\n' || char === '\r') {
-                await page.keyboard.down('Shift');
-                await page.keyboard.press('Enter');
-                await page.keyboard.up('Shift');
+            } else if (char === "\n" || char === "\r") {
+                await page.keyboard.down("Shift");
+                await page.keyboard.press("Enter");
+                await page.keyboard.up("Shift");
                 await sleep(30, 100);
                 continue;
             }
@@ -534,17 +542,17 @@ export async function humanType(page, target, text, options = {}) {
         await sleep(500, 1000);
 
         // 3. 全选删除 (macOS 使用 Meta/Command, Windows/Linux 使用 Control)
-        const modifierKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+        const modifierKey = process.platform === "darwin" ? "Meta" : "Control";
         await page.keyboard.down(modifierKey);
-        await page.keyboard.press('A');
+        await page.keyboard.press("A");
         await page.keyboard.up(modifierKey);
         await sleep(100, 300);
-        await page.keyboard.press('Backspace');
+        await page.keyboard.press("Backspace");
         await sleep(100, 300);
 
         // 4. 瞬间粘贴全部文本 (始终使用已获取的 ElementHandle，支持 Shadow DOM)
         await page.evaluate((content) => {
-            document.execCommand('insertText', false, content);
+            document.execCommand("insertText", false, content);
         }, text);
     }
 }
@@ -565,7 +573,7 @@ async function findAllFileInputs(page) {
 
             // 1. 检查当前节点下的 input
             const nodes = root.querySelectorAll('input[type="file"]');
-            nodes.forEach(n => inputs.push(n));
+            nodes.forEach((n) => inputs.push(n));
 
             // 2. 遍历 Shadow DOM
             const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, null, false);
@@ -603,21 +611,21 @@ async function findAllFileInputs(page) {
  */
 export async function pasteImages(page, target, filePaths, options = {}, meta = {}) {
     if (!filePaths || filePaths.length === 0) return;
-    logger.info('浏览器', `正在处理 ${filePaths.length} 张图片...`, meta);
+    logger.info("浏览器", `正在处理 ${filePaths.length} 张图片...`, meta);
 
     // 1. 拟人化: 先点击一下目标区域 (让后台看起来像是用户聚焦了输入框)
-    await safeClick(page, target, { bias: 'input' });
+    await safeClick(page, target, { bias: "input" });
     await sleep(300, 500);
 
     try {
-        logger.debug('浏览器', '正在深度扫描文件上传控件...');
+        logger.debug("浏览器", "正在深度扫描文件上传控件...");
         const fileInputs = await findAllFileInputs(page);
 
         if (fileInputs.length === 0) {
             throw new Error('未找到任何 input[type="file"] 控件,无法上传');
         }
 
-        logger.info('浏览器', `找到 ${fileInputs.length} 个文件输入框,尝试上传...`, meta);
+        logger.info("浏览器", `找到 ${fileInputs.length} 个文件输入框,尝试上传...`, meta);
 
         // LMArena 通常只有一个用于聊天的上传控件，或者我们尝试第一个可用的
         // 如果有多个，通常最后一个是当前对话框的，或者我们可以尝试全部 (比较暴力但有效)
@@ -626,40 +634,48 @@ export async function pasteImages(page, target, filePaths, options = {}, meta = 
         for (const handle of fileInputs) {
             try {
                 // 检查元素是否连接在 DOM 上
-                const isConnected = await handle.evaluate(el => el.isConnected);
+                const isConnected = await handle.evaluate((el) => el.isConnected);
                 if (!isConnected) continue;
 
                 // 使用 Playwright 原生上传 (绕过所有事件拦截)
                 await handle.setInputFiles(filePaths);
                 uploaded = true;
-                logger.debug('浏览器', '已通过原生控件提交图片');
+                logger.debug("浏览器", "已通过原生控件提交图片");
                 break; // 只要有一个成功就停止
             } catch (e) {
                 // 忽略不可操作的 input (比如被禁用的)
-                logger.debug('浏览器', `跳过不可用的文件输入框: ${e.message}`);
+                logger.debug("浏览器", `跳过不可用的文件输入框: ${e.message}`);
             }
         }
 
         if (!uploaded) {
-            throw new Error('所有文件控件均无法接受输入');
+            throw new Error("所有文件控件均无法接受输入");
         }
 
         // 如果提供了自定义的上传确认函数，使用它
-        if (options.uploadValidator && typeof options.uploadValidator === 'function') {
+        if (options.uploadValidator && typeof options.uploadValidator === "function") {
             const expectedUploads = filePaths.length;
             let validatedCount = 0;
 
             const uploadPromise = new Promise((resolve) => {
                 const timeout = setTimeout(() => {
                     cleanup();
-                    logger.warn('浏览器', `图片上传等待超时 (已确认: ${validatedCount}/${expectedUploads})`, meta);
+                    logger.warn(
+                        "浏览器",
+                        `图片上传等待超时 (已确认: ${validatedCount}/${expectedUploads})`,
+                        meta
+                    );
                     resolve();
                 }, 60000); // 60s 超时
 
                 const onResponse = (response) => {
                     if (options.uploadValidator(response)) {
                         validatedCount++;
-                        logger.info('浏览器', `图片上传进度: ${validatedCount}/${expectedUploads}`, meta);
+                        logger.info(
+                            "浏览器",
+                            `图片上传进度: ${validatedCount}/${expectedUploads}`,
+                            meta
+                        );
                         if (validatedCount >= expectedUploads) {
                             cleanup();
                             resolve();
@@ -669,23 +685,22 @@ export async function pasteImages(page, target, filePaths, options = {}, meta = 
 
                 const cleanup = () => {
                     clearTimeout(timeout);
-                    page.off('response', onResponse);
+                    page.off("response", onResponse);
                 };
 
-                page.on('response', onResponse);
+                page.on("response", onResponse);
             });
 
-            logger.info('浏览器', `已提交图片, 正在等待上传确认...`, meta);
+            logger.info("浏览器", `已提交图片, 正在等待上传确认...`, meta);
             await uploadPromise;
-            logger.info('浏览器', `所有图片上传完成`, meta);
+            logger.info("浏览器", `所有图片上传完成`, meta);
         } else {
             // 默认行为: 等待上传预览出现
-            logger.info('浏览器', `已提交图片, 等待预览生成...`, meta);
+            logger.info("浏览器", `已提交图片, 等待预览生成...`, meta);
             await sleep(500, 1000);
         }
-
     } catch (e) {
-        logger.error('浏览器', `上传失败: ${e.message}`);
+        logger.error("浏览器", `上传失败: ${e.message}`);
         throw e;
     }
 }
@@ -702,15 +717,21 @@ export async function pasteImages(page, target, filePaths, options = {}, meta = 
  * @param {Object} [meta] - 元数据 (用于日志)
  * @returns {Promise<void>}
  */
-export async function uploadFilesViaChooser(page, triggerTarget, filePaths, options = {}, meta = {}) {
+export async function uploadFilesViaChooser(
+    page,
+    triggerTarget,
+    filePaths,
+    options = {},
+    meta = {}
+) {
     if (!filePaths || filePaths.length === 0) return;
 
     const timeout = options.timeout || 60000;
-    const clickAction = options.clickAction || 'click';
+    const clickAction = options.clickAction || "click";
     const expectedUploads = filePaths.length;
     let uploadedCount = 0;
 
-    logger.info('浏览器', `正在处理 ${filePaths.length} 张图片 (filechooser 模式)...`, meta);
+    logger.info("浏览器", `正在处理 ${filePaths.length} 张图片 (filechooser 模式)...`, meta);
 
     // 设置上传确认监听
     const uploadPromise = new Promise((resolve) => {
@@ -722,14 +743,18 @@ export async function uploadFilesViaChooser(page, triggerTarget, filePaths, opti
 
         const timeoutId = setTimeout(() => {
             cleanup();
-            logger.warn('浏览器', `图片上传等待超时 (已确认: ${uploadedCount}/${expectedUploads})`, meta);
+            logger.warn(
+                "浏览器",
+                `图片上传等待超时 (已确认: ${uploadedCount}/${expectedUploads})`,
+                meta
+            );
             resolve();
         }, timeout);
 
         const onResponse = (response) => {
             if (options.uploadValidator(response)) {
                 uploadedCount++;
-                logger.info('浏览器', `图片上传进度: ${uploadedCount}/${expectedUploads}`, meta);
+                logger.info("浏览器", `图片上传进度: ${uploadedCount}/${expectedUploads}`, meta);
                 if (uploadedCount >= expectedUploads) {
                     cleanup();
                     resolve();
@@ -739,18 +764,20 @@ export async function uploadFilesViaChooser(page, triggerTarget, filePaths, opti
 
         const cleanup = () => {
             clearTimeout(timeoutId);
-            page.off('response', onResponse);
+            page.off("response", onResponse);
         };
 
-        page.on('response', onResponse);
+        page.on("response", onResponse);
     });
 
     // 设置等待 filechooser 事件（在点击之前，带超时保护）
-    const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 30000 });
+    const fileChooserPromise = page.waitForEvent("filechooser", {
+        timeout: 30000
+    });
 
     // 点击触发按钮（支持单击或双击）
-    const clickCount = clickAction === 'dblclick' ? 2 : 1;
-    await safeClick(page, triggerTarget, { bias: 'button', clickCount });
+    const clickCount = clickAction === "dblclick" ? 2 : 1;
+    await safeClick(page, triggerTarget, { bias: "button", clickCount });
 
     // 等待 filechooser 事件并设置文件（带异常保护）
     let fileChooser;
@@ -760,17 +787,17 @@ export async function uploadFilesViaChooser(page, triggerTarget, filePaths, opti
         // filechooser 超时通常意味着点击没有触发文件选择器
         // 抛出可识别的错误让上层决定是否重试
         const error = new Error(`文件选择器等待超时: ${e.message}`);
-        error.code = 'UPLOAD_FILECHOOSER_TIMEOUT';
+        error.code = "UPLOAD_FILECHOOSER_TIMEOUT";
         throw error;
     }
 
     await fileChooser.setFiles(filePaths);
-    logger.debug('浏览器', '已通过 filechooser 提交文件');
+    logger.debug("浏览器", "已通过 filechooser 提交文件");
 
     // 等待上传完成（如果有验证器）
     if (options.uploadValidator) {
         await uploadPromise;
-        logger.info('浏览器', '所有图片上传完成', meta);
+        logger.info("浏览器", "所有图片上传完成", meta);
     }
 }
 
@@ -796,16 +823,16 @@ export function createPageCloseWatcher(page) {
     let closeHandler, crashHandler;
 
     const promise = new Promise((_, reject) => {
-        closeHandler = () => reject(new Error('PAGE_CLOSED'));
-        crashHandler = () => reject(new Error('PAGE_CRASHED'));
+        closeHandler = () => reject(new Error("PAGE_CLOSED"));
+        crashHandler = () => reject(new Error("PAGE_CRASHED"));
 
-        page.once('close', closeHandler);
-        page.once('crash', crashHandler);
+        page.once("close", closeHandler);
+        page.once("crash", crashHandler);
     });
 
     const cleanup = () => {
-        if (closeHandler) page.off('close', closeHandler);
-        if (crashHandler) page.off('crash', crashHandler);
+        if (closeHandler) page.off("close", closeHandler);
+        if (crashHandler) page.off("crash", crashHandler);
     };
 
     return { promise, cleanup };

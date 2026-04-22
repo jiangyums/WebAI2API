@@ -3,8 +3,8 @@
  * @description 统一处理页面级和 HTTP 级错误，提供可重试判定
  */
 
-import { logger } from '../../utils/logger.js';
-import { ADAPTER_ERRORS } from '../../server/errors.js';
+import { logger } from "../../utils/logger.js";
+import { ADAPTER_ERRORS } from "../../server/errors.js";
 
 // ==========================================
 // 可重试判定
@@ -28,10 +28,10 @@ export function isRetryableError(errorMessage) {
         // 5xx 服务端错误
         /5\d{2}|internal server error|bad gateway|service unavailable/i,
         // 限流（可能是临时的）
-        /rate limit|too many requests|429/i,
+        /rate limit|too many requests|429/i
     ];
 
-    return retryablePatterns.some(pattern => pattern.test(errorMessage));
+    return retryablePatterns.some((pattern) => pattern.test(errorMessage));
 }
 
 // ==========================================
@@ -45,50 +45,86 @@ export function isRetryableError(errorMessage) {
  * @returns {{ error: string, code: string, retryable: boolean } | null}
  */
 export function normalizePageError(err, meta = {}) {
-    if (err.message === 'PAGE_CLOSED') {
-        logger.error('适配器', '页面已关闭', meta);
-        return { error: '页面已关闭，请勿在生图过程中刷新页面', code: ADAPTER_ERRORS.PAGE_CLOSED, retryable: true };
+    if (err.message === "PAGE_CLOSED") {
+        logger.error("适配器", "页面已关闭", meta);
+        return {
+            error: "页面已关闭，请勿在生图过程中刷新页面",
+            code: ADAPTER_ERRORS.PAGE_CLOSED,
+            retryable: true
+        };
     }
-    if (err.message === 'PAGE_CRASHED') {
-        logger.error('适配器', '页面崩溃', meta);
-        return { error: '页面崩溃，请重试', code: ADAPTER_ERRORS.PAGE_CRASHED, retryable: true };
+    if (err.message === "PAGE_CRASHED") {
+        logger.error("适配器", "页面崩溃", meta);
+        return {
+            error: "页面崩溃，请重试",
+            code: ADAPTER_ERRORS.PAGE_CRASHED,
+            retryable: true
+        };
     }
-    if (err.message === 'PAGE_INVALID') {
-        logger.error('适配器', '页面状态无效', meta);
-        return { error: '页面状态无效，请重新初始化', code: ADAPTER_ERRORS.PAGE_INVALID, retryable: true };
+    if (err.message === "PAGE_INVALID") {
+        logger.error("适配器", "页面状态无效", meta);
+        return {
+            error: "页面状态无效，请重新初始化",
+            code: ADAPTER_ERRORS.PAGE_INVALID,
+            retryable: true
+        };
     }
     // API_TIMEOUT: waitApiResponse 内部转换后的超时错误
-    if (err.message?.startsWith('API_TIMEOUT:')) {
-        const timeoutMsg = err.message.replace('API_TIMEOUT: ', '');
-        logger.error('适配器', timeoutMsg, meta);
-        return { error: timeoutMsg, code: ADAPTER_ERRORS.TIMEOUT_ERROR, retryable: true };
+    if (err.message?.startsWith("API_TIMEOUT:")) {
+        const timeoutMsg = err.message.replace("API_TIMEOUT: ", "");
+        logger.error("适配器", timeoutMsg, meta);
+        return {
+            error: timeoutMsg,
+            code: ADAPTER_ERRORS.TIMEOUT_ERROR,
+            retryable: true
+        };
     }
     // 页面加载超时 (gotoWithCheck 抛出的中文超时错误)
-    if (err.message?.includes('页面加载超时') || err.message?.includes('页面加载失败')) {
-        logger.error('适配器', err.message, meta);
-        return { error: err.message, code: ADAPTER_ERRORS.TIMEOUT_ERROR, retryable: true };
+    if (err.message?.includes("页面加载超时") || err.message?.includes("页面加载失败")) {
+        logger.error("适配器", err.message, meta);
+        return {
+            error: err.message,
+            code: ADAPTER_ERRORS.TIMEOUT_ERROR,
+            retryable: true
+        };
     }
     // CLICK_TIMEOUT: safeClick 内部超时
-    if (err.message?.includes('CLICK_TIMEOUT')) {
-        logger.error('适配器', `点击操作超时: ${err.message}`, meta);
-        return { error: err.message, code: ADAPTER_ERRORS.TIMEOUT_ERROR, retryable: true };
+    if (err.message?.includes("CLICK_TIMEOUT")) {
+        logger.error("适配器", `点击操作超时: ${err.message}`, meta);
+        return {
+            error: err.message,
+            code: ADAPTER_ERRORS.TIMEOUT_ERROR,
+            retryable: true
+        };
     }
     // 兼容原生 TimeoutError (Playwright 元素操作超时等)
-    if (err.name === 'TimeoutError' || err.message?.includes('Timeout')) {
-        logger.error('适配器', `页面操作超时: ${err.message}`, meta);
-        return { error: '页面操作超时, 页面可能未正常加载或元素未找到', code: ADAPTER_ERRORS.TIMEOUT_ERROR, retryable: true };
+    if (err.name === "TimeoutError" || err.message?.includes("Timeout")) {
+        logger.error("适配器", `页面操作超时: ${err.message}`, meta);
+        return {
+            error: "页面操作超时, 页面可能未正常加载或元素未找到",
+            code: ADAPTER_ERRORS.TIMEOUT_ERROR,
+            retryable: true
+        };
     }
     // PAGE_ERROR_DETECTED: waitApiResponse 页面 UI 中检测到的错误关键词
-    if (err.message?.startsWith('PAGE_ERROR_DETECTED:')) {
-        const keyword = err.message.replace('PAGE_ERROR_DETECTED: ', '');
-        logger.error('适配器', `页面检测到错误: ${keyword}`, meta);
-        return { error: `内容被阻止: ${keyword}`, code: ADAPTER_ERRORS.CONTENT_BLOCKED, retryable: false };
+    if (err.message?.startsWith("PAGE_ERROR_DETECTED:")) {
+        const keyword = err.message.replace("PAGE_ERROR_DETECTED: ", "");
+        logger.error("适配器", `页面检测到错误: ${keyword}`, meta);
+        return {
+            error: `内容被阻止: ${keyword}`,
+            code: ADAPTER_ERRORS.CONTENT_BLOCKED,
+            retryable: false
+        };
     }
     // API_ERROR_DETECTED: waitApiResponse API 响应体中检测到的错误关键词
-    if (err.message?.startsWith('API_ERROR_DETECTED:')) {
-        const keyword = err.message.replace('API_ERROR_DETECTED: ', '');
-        logger.error('适配器', `API 响应检测到错误: ${keyword}`, meta);
-        return { error: `内容被阻止: ${keyword}`, code: ADAPTER_ERRORS.CONTENT_BLOCKED, retryable: false };
+    if (err.message?.startsWith("API_ERROR_DETECTED:")) {
+        const keyword = err.message.replace("API_ERROR_DETECTED: ", "");
+        logger.error("适配器", `API 响应检测到错误: ${keyword}`, meta);
+        return {
+            error: `内容被阻止: ${keyword}`,
+            code: ADAPTER_ERRORS.CONTENT_BLOCKED,
+            retryable: false
+        };
     }
     return null;
 }
@@ -112,7 +148,7 @@ export function normalizeHttpError(response, content = null) {
         try {
             const json = JSON.parse(content);
             // 格式: {"error": "Request rejected: ..."}
-            if (json.error && typeof json.error === 'string') {
+            if (json.error && typeof json.error === "string") {
                 detailError = json.error;
             }
             // 格式: {"error": {"message": "..."}}
@@ -128,22 +164,34 @@ export function normalizeHttpError(response, content = null) {
     }
 
     // 检查是否是内容审核拒绝 (通常返回 422 或 429 但含有拒绝信息)
-    const isContentRejection = detailError && (
-        /reject|violat|terms|blocked|forbidden|unsafe|moderat/i.test(detailError) ||
-        detailError === 'prompt failed'
-    );
+    const isContentRejection =
+        detailError &&
+        (/reject|violat|terms|blocked|forbidden|unsafe|moderat/i.test(detailError) ||
+            detailError === "prompt failed");
     if (isContentRejection) {
-        return { error: `内容被拒绝: ${detailError}`, code: ADAPTER_ERRORS.CONTENT_BLOCKED, retryable: false };
+        return {
+            error: `内容被拒绝: ${detailError}`,
+            code: ADAPTER_ERRORS.CONTENT_BLOCKED,
+            retryable: false
+        };
     }
 
     // 429 限流检查
-    if (status === 429 || content?.includes('Too Many Requests')) {
-        return { error: '触发限流/上游繁忙', code: ADAPTER_ERRORS.RATE_LIMITED, retryable: true };
+    if (status === 429 || content?.includes("Too Many Requests")) {
+        return {
+            error: "触发限流/上游繁忙",
+            code: ADAPTER_ERRORS.RATE_LIMITED,
+            retryable: true
+        };
     }
 
     // reCAPTCHA 验证失败
-    if (content?.includes('recaptcha validation failed')) {
-        return { error: '触发人机验证', code: ADAPTER_ERRORS.CAPTCHA_REQUIRED, retryable: false };
+    if (content?.includes("recaptcha validation failed")) {
+        return {
+            error: "触发人机验证",
+            code: ADAPTER_ERRORS.CAPTCHA_REQUIRED,
+            retryable: false
+        };
     }
 
     // 5xx 服务端错误（可重试）

@@ -3,15 +3,15 @@
  * @description 提供管理接口，包括系统状态、配置管理、适配器元数据等
  */
 
-import { sendJson, sendApiError } from '../../respond.js';
-import { ERROR_CODES } from '../../errors.js';
-import { logger } from '../../../utils/logger.js';
+import { sendJson, sendApiError } from "../../respond.js";
+import { ERROR_CODES } from "../../errors.js";
+import { logger } from "../../../utils/logger.js";
 import {
     getSystemStatus,
     getDataFolders,
     deleteDataFolders,
     clearTempFiles
-} from '../../../utils/systemInfo.js';
+} from "../../../utils/systemInfo.js";
 import {
     getServerConfig,
     saveServerConfig,
@@ -25,17 +25,22 @@ import {
     saveAdaptersConfig,
     getPoolConfig,
     savePoolConfig
-} from '../../../config/manager.js';
+} from "../../../config/manager.js";
 import {
     validateServerConfig,
     validateBrowserConfig,
     validateInstancesConfig,
     validatePoolConfig,
     validateAdaptersConfig
-} from '../../../config/validator.js';
-import { registry } from '../../../backend/registry.js';
-import { sendRestartSignal, sendStopSignal, isUnderSupervisor, getVncInfo } from '../../../utils/ipc.js';
-import { getTodayStats, getStatsRange, clearStatsRange } from '../../../utils/stats.js';
+} from "../../../config/validator.js";
+import { registry } from "../../../backend/registry.js";
+import {
+    sendRestartSignal,
+    sendStopSignal,
+    isUnderSupervisor,
+    getVncInfo
+} from "../../../utils/ipc.js";
+import { getTodayStats, getStatsRange, clearStatsRange } from "../../../utils/stats.js";
 import {
     getList as getHistoryList,
     getDetail as getHistoryDetail,
@@ -45,10 +50,10 @@ import {
     getStats as getHistoryStats,
     getModelList as getHistoryModelList,
     getMediaDir
-} from '../../../utils/history.js';
-import path from 'path';
-import fs from 'fs/promises';
-import { useContextDownload } from '../../../backend/utils/download.js';
+} from "../../../utils/history.js";
+import path from "path";
+import fs from "fs/promises";
+import { useContextDownload } from "../../../backend/utils/download.js";
 
 /**
  * 读取请求体
@@ -88,7 +93,7 @@ export function createAdminRouter(context) {
             // ==================== 系统管理 ====================
 
             // GET /admin/status - 系统状态
-            if (method === 'GET' && pathname === '/status') {
+            if (method === "GET" && pathname === "/status") {
                 const status = getSystemStatus();
                 const safeMode = getSafeMode?.() || { enabled: false, reason: null };
                 sendJson(res, 200, { ...status, safeMode });
@@ -96,7 +101,7 @@ export function createAdminRouter(context) {
             }
 
             // POST /admin/restart - 重启服务
-            if (method === 'POST' && pathname === '/restart') {
+            if (method === "POST" && pathname === "/restart") {
                 // 解析请求体获取重启参数
                 let loginMode = null;
                 let workerName = null;
@@ -104,34 +109,43 @@ export function createAdminRouter(context) {
                     const body = await readBody(req);
                     loginMode = body.loginMode || null;
                     workerName = body.workerName || null;
-                } catch { /* 无请求体时使用默认值 */ }
+                } catch {
+                    /* 无请求体时使用默认值 */
+                }
 
                 const modeDesc = loginMode
-                    ? (workerName ? `登录模式 (${workerName})` : '登录模式')
-                    : '普通模式';
-                sendJson(res, 200, { success: true, message: `服务正在以${modeDesc}重启...` });
-                logger.info('管理器', `收到重启请求: ${modeDesc}`);
+                    ? workerName
+                        ? `登录模式 (${workerName})`
+                        : "登录模式"
+                    : "普通模式";
+                sendJson(res, 200, {
+                    success: true,
+                    message: `服务正在以${modeDesc}重启...`
+                });
+                logger.info("管理器", `收到重启请求: ${modeDesc}`);
 
                 setTimeout(async () => {
                     // 构建启动参数（仅登录模式相关）
                     const extraArgs = [];
                     if (loginMode) {
-                        extraArgs.push(workerName ? `-login=${workerName}` : '-login');
+                        extraArgs.push(workerName ? `-login=${workerName}` : "-login");
                     }
 
                     if (isUnderSupervisor()) {
                         // Supervisor 模式：通过 IPC 发送带参数的重启信号
                         const sent = await sendRestartSignal(extraArgs);
                         if (!sent) {
-                            logger.warn('管理器', 'IPC 重启信号发送失败，尝试自重启');
+                            logger.warn("管理器", "IPC 重启信号发送失败，尝试自重启");
                             // 降级到自重启
-                            const { spawn } = await import('child_process');
-                            const newArgs = process.argv.slice(1).filter(arg => !arg.startsWith('-login'));
+                            const { spawn } = await import("child_process");
+                            const newArgs = process.argv
+                                .slice(1)
+                                .filter((arg) => !arg.startsWith("-login"));
                             newArgs.push(...extraArgs);
                             const child = spawn(process.execPath, newArgs, {
                                 cwd: process.cwd(),
                                 detached: true,
-                                stdio: 'ignore',
+                                stdio: "ignore",
                                 env: process.env
                             });
                             child.unref();
@@ -139,13 +153,15 @@ export function createAdminRouter(context) {
                         }
                     } else {
                         // 独立模式：使用子进程自重启
-                        const { spawn } = await import('child_process');
-                        const newArgs = process.argv.slice(1).filter(arg => !arg.startsWith('-login'));
+                        const { spawn } = await import("child_process");
+                        const newArgs = process.argv
+                            .slice(1)
+                            .filter((arg) => !arg.startsWith("-login"));
                         newArgs.push(...extraArgs);
                         const child = spawn(process.execPath, newArgs, {
                             cwd: process.cwd(),
                             detached: true,
-                            stdio: 'ignore',
+                            stdio: "ignore",
                             env: process.env
                         });
                         child.unref();
@@ -156,16 +172,16 @@ export function createAdminRouter(context) {
             }
 
             // POST /admin/stop - 停止服务
-            if (method === 'POST' && pathname === '/stop') {
-                sendJson(res, 200, { success: true, message: '服务正在停止...' });
-                logger.info('管理器', '收到停止请求，将在 1 秒后退出');
+            if (method === "POST" && pathname === "/stop") {
+                sendJson(res, 200, { success: true, message: "服务正在停止..." });
+                logger.info("管理器", "收到停止请求，将在 1 秒后退出");
 
                 setTimeout(() => process.exit(0), 1000);
                 return;
             }
 
             // GET /admin/vnc/status - VNC 状态
-            if (method === 'GET' && pathname === '/vnc/status') {
+            if (method === "GET" && pathname === "/vnc/status") {
                 const vncInfo = await getVncInfo();
                 if (vncInfo) {
                     sendJson(res, 200, vncInfo);
@@ -174,7 +190,7 @@ export function createAdminRouter(context) {
                     sendJson(res, 200, {
                         enabled: false,
                         port: 0,
-                        display: '',
+                        display: "",
                         xvfbMode: false
                     });
                 }
@@ -184,35 +200,35 @@ export function createAdminRouter(context) {
             // ==================== 缓存与数据管理 ====================
 
             // POST /admin/cache/clear - 清理缓存
-            if (method === 'POST' && pathname === '/cache/clear') {
+            if (method === "POST" && pathname === "/cache/clear") {
                 const result = clearTempFiles(tempDir);
                 sendJson(res, 200, { success: true, cleaned: result.cleaned });
                 return;
             }
 
             // GET /admin/logs - 读取系统日志
-            if (method === 'GET' && pathname === '/logs') {
+            if (method === "GET" && pathname === "/logs") {
                 const url = new URL(req.url, `http://${req.headers.host}`);
-                const lines = parseInt(url.searchParams.get('lines') || '200', 10);
+                const lines = parseInt(url.searchParams.get("lines") || "200", 10);
                 const result = logger.readLogs(lines);
                 sendJson(res, 200, result);
                 return;
             }
 
             // DELETE /admin/logs - 清除系统日志
-            if (method === 'DELETE' && pathname === '/logs') {
+            if (method === "DELETE" && pathname === "/logs") {
                 const success = logger.clearLogs();
                 if (success) {
-                    logger.info('管理器', '系统日志已清除');
-                    sendJson(res, 200, { success: true, message: '日志已清除' });
+                    logger.info("管理器", "系统日志已清除");
+                    sendJson(res, 200, { success: true, message: "日志已清除" });
                 } else {
-                    sendJson(res, 500, { success: false, message: '日志清除失败' });
+                    sendJson(res, 500, { success: false, message: "日志清除失败" });
                 }
                 return;
             }
 
             // GET /admin/data-folders - 列出数据文件夹
-            if (method === 'GET' && pathname === '/data-folders') {
+            if (method === "GET" && pathname === "/data-folders") {
                 const workers = config.backend?.pool?.workers || [];
                 const folders = getDataFolders(workers);
                 sendJson(res, 200, folders);
@@ -220,10 +236,13 @@ export function createAdminRouter(context) {
             }
 
             // POST /admin/data-folders/delete - 删除数据文件夹
-            if (method === 'POST' && pathname === '/data-folders/delete') {
+            if (method === "POST" && pathname === "/data-folders/delete") {
                 const body = await readBody(req);
                 if (!body.folders || !Array.isArray(body.folders)) {
-                    sendApiError(res, { code: ERROR_CODES.INVALID_REQUEST_BODY, message: '缺少 folders 数组' });
+                    sendApiError(res, {
+                        code: ERROR_CODES.INVALID_REQUEST_BODY,
+                        message: "缺少 folders 数组"
+                    });
                     return;
                 }
                 const workers = config.backend?.pool?.workers || [];
@@ -240,8 +259,8 @@ export function createAdminRouter(context) {
             // ==================== 配置管理 ====================
 
             // GET/POST /admin/config/server
-            if (pathname === '/config/server') {
-                if (method === 'GET') {
+            if (pathname === "/config/server") {
+                if (method === "GET") {
                     const serverConfig = getServerConfig();
                     const queueConfig = getQueueConfig();
                     sendJson(res, 200, {
@@ -249,7 +268,7 @@ export function createAdminRouter(context) {
                         queueBuffer: queueConfig.queueBuffer,
                         imageLimit: queueConfig.imageLimit
                     });
-                } else if (method === 'POST') {
+                } else if (method === "POST") {
                     const body = await readBody(req);
 
                     // 校验配置
@@ -257,7 +276,7 @@ export function createAdminRouter(context) {
                     if (!validation.valid) {
                         sendApiError(res, {
                             code: ERROR_CODES.INVALID_REQUEST_BODY,
-                            message: `配置校验失败: ${validation.errors.join('; ')}`
+                            message: `配置校验失败: ${validation.errors.join("; ")}`
                         });
                         return;
                     }
@@ -267,7 +286,10 @@ export function createAdminRouter(context) {
                     if (body.queueBuffer !== undefined || body.imageLimit !== undefined) {
                         saveQueueConfig(body);
                     }
-                    sendJson(res, 200, { success: true, message: '配置已保存，请重启服务生效' });
+                    sendJson(res, 200, {
+                        success: true,
+                        message: "配置已保存，请重启服务生效"
+                    });
                 } else {
                     res.writeHead(405);
                     res.end();
@@ -276,10 +298,10 @@ export function createAdminRouter(context) {
             }
 
             // GET/POST /admin/config/browser
-            if (pathname === '/config/browser') {
-                if (method === 'GET') {
+            if (pathname === "/config/browser") {
+                if (method === "GET") {
                     sendJson(res, 200, getBrowserConfig());
-                } else if (method === 'POST') {
+                } else if (method === "POST") {
                     const body = await readBody(req);
 
                     // 校验配置
@@ -287,13 +309,16 @@ export function createAdminRouter(context) {
                     if (!validation.valid) {
                         sendApiError(res, {
                             code: ERROR_CODES.INVALID_REQUEST_BODY,
-                            message: `配置校验失败: ${validation.errors.join('; ')}`
+                            message: `配置校验失败: ${validation.errors.join("; ")}`
                         });
                         return;
                     }
 
                     saveBrowserConfig(body);
-                    sendJson(res, 200, { success: true, message: '配置已保存，请重启服务生效' });
+                    sendJson(res, 200, {
+                        success: true,
+                        message: "配置已保存，请重启服务生效"
+                    });
                 } else {
                     res.writeHead(405);
                     res.end();
@@ -302,10 +327,10 @@ export function createAdminRouter(context) {
             }
 
             // GET/POST /admin/config/instances (对应原设计的 workers)
-            if (pathname === '/config/instances' || pathname === '/config/workers') {
-                if (method === 'GET') {
+            if (pathname === "/config/instances" || pathname === "/config/workers") {
+                if (method === "GET") {
                     sendJson(res, 200, getInstancesConfig());
-                } else if (method === 'POST') {
+                } else if (method === "POST") {
                     const body = await readBody(req);
 
                     // 校验配置（包括 Instance/Worker 名称唯一性）
@@ -313,13 +338,16 @@ export function createAdminRouter(context) {
                     if (!validation.valid) {
                         sendApiError(res, {
                             code: ERROR_CODES.INVALID_REQUEST_BODY,
-                            message: `配置校验失败: ${validation.errors.join('; ')}`
+                            message: `配置校验失败: ${validation.errors.join("; ")}`
                         });
                         return;
                     }
 
                     saveInstancesConfig(body);
-                    sendJson(res, 200, { success: true, message: '配置已保存，请重启服务生效' });
+                    sendJson(res, 200, {
+                        success: true,
+                        message: "配置已保存，请重启服务生效"
+                    });
                 } else {
                     res.writeHead(405);
                     res.end();
@@ -328,10 +356,10 @@ export function createAdminRouter(context) {
             }
 
             // GET/POST /admin/config/adapters
-            if (pathname === '/config/adapters') {
-                if (method === 'GET') {
+            if (pathname === "/config/adapters") {
+                if (method === "GET") {
                     sendJson(res, 200, getAdaptersConfig());
-                } else if (method === 'POST') {
+                } else if (method === "POST") {
                     const body = await readBody(req);
 
                     // 校验配置
@@ -339,13 +367,16 @@ export function createAdminRouter(context) {
                     if (!validation.valid) {
                         sendApiError(res, {
                             code: ERROR_CODES.INVALID_REQUEST_BODY,
-                            message: `配置校验失败: ${validation.errors.join('; ')}`
+                            message: `配置校验失败: ${validation.errors.join("; ")}`
                         });
                         return;
                     }
 
                     saveAdaptersConfig(body);
-                    sendJson(res, 200, { success: true, message: '配置已保存，请重启服务生效' });
+                    sendJson(res, 200, {
+                        success: true,
+                        message: "配置已保存，请重启服务生效"
+                    });
                 } else {
                     res.writeHead(405);
                     res.end();
@@ -354,10 +385,10 @@ export function createAdminRouter(context) {
             }
 
             // GET/POST /admin/config/pool - 负载均衡和故障转移配置
-            if (pathname === '/config/pool') {
-                if (method === 'GET') {
+            if (pathname === "/config/pool") {
+                if (method === "GET") {
                     sendJson(res, 200, getPoolConfig());
-                } else if (method === 'POST') {
+                } else if (method === "POST") {
                     const body = await readBody(req);
 
                     // 校验配置
@@ -365,13 +396,16 @@ export function createAdminRouter(context) {
                     if (!validation.valid) {
                         sendApiError(res, {
                             code: ERROR_CODES.INVALID_REQUEST_BODY,
-                            message: `配置校验失败: ${validation.errors.join('; ')}`
+                            message: `配置校验失败: ${validation.errors.join("; ")}`
                         });
                         return;
                     }
 
                     savePoolConfig(body);
-                    sendJson(res, 200, { success: true, message: '配置已保存，请重启服务生效' });
+                    sendJson(res, 200, {
+                        success: true,
+                        message: "配置已保存，请重启服务生效"
+                    });
                 } else {
                     res.writeHead(405);
                     res.end();
@@ -382,7 +416,7 @@ export function createAdminRouter(context) {
             // ==================== 元数据 ====================
 
             // GET /admin/adapters - 获取适配器列表（含 configSchema）
-            if (method === 'GET' && pathname === '/adapters') {
+            if (method === "GET" && pathname === "/adapters") {
                 const adapters = [];
                 const adapterIds = registry.getAdapterIds();
                 const adapterConfig = getAdaptersConfig();
@@ -394,10 +428,13 @@ export function createAdminRouter(context) {
                         adapters.push({
                             id: adapter.id,
                             displayName: adapter.displayName || adapter.id,
-                            description: adapter.description || '',
+                            description: adapter.description || "",
                             modelCount: adapter.models?.length || 0,
-                            models: (adapter.models || []).map(m => m.id),
-                            modelFilter: config.modelFilter || { mode: 'blacklist', list: [] },
+                            models: (adapter.models || []).map((m) => m.id),
+                            modelFilter: config.modelFilter || {
+                                mode: "blacklist",
+                                list: []
+                            },
                             configSchema: adapter.configSchema || []
                         });
                     }
@@ -410,7 +447,7 @@ export function createAdminRouter(context) {
             // ==================== 统计与监控 ====================
 
             // GET /admin/stats - 基本统计（包含今日成功/失败）
-            if (method === 'GET' && pathname === '/stats') {
+            if (method === "GET" && pathname === "/stats") {
                 const instances = config.backend?.pool?.instances || [];
                 const workers = config.backend?.pool?.workers || [];
                 const todayStats = getTodayStats();
@@ -425,13 +462,16 @@ export function createAdminRouter(context) {
             }
 
             // GET /admin/stats/range - 查询日期范围统计
-            if (method === 'GET' && pathname === '/stats/range') {
+            if (method === "GET" && pathname === "/stats/range") {
                 const url = new URL(req.url, `http://${req.headers.host}`);
-                const start = url.searchParams.get('start');
-                const end = url.searchParams.get('end');
+                const start = url.searchParams.get("start");
+                const end = url.searchParams.get("end");
 
                 if (!start || !end) {
-                    sendApiError(res, { code: ERROR_CODES.INVALID_REQUEST_BODY, message: '缺少 start 或 end 参数' });
+                    sendApiError(res, {
+                        code: ERROR_CODES.INVALID_REQUEST_BODY,
+                        message: "缺少 start 或 end 参数"
+                    });
                     return;
                 }
 
@@ -441,13 +481,16 @@ export function createAdminRouter(context) {
             }
 
             // DELETE /admin/stats/range - 删除日期范围统计
-            if (method === 'DELETE' && pathname === '/stats/range') {
+            if (method === "DELETE" && pathname === "/stats/range") {
                 const url = new URL(req.url, `http://${req.headers.host}`);
-                const start = url.searchParams.get('start');
-                const end = url.searchParams.get('end');
+                const start = url.searchParams.get("start");
+                const end = url.searchParams.get("end");
 
                 if (!start || !end) {
-                    sendApiError(res, { code: ERROR_CODES.INVALID_REQUEST_BODY, message: '缺少 start 或 end 参数' });
+                    sendApiError(res, {
+                        code: ERROR_CODES.INVALID_REQUEST_BODY,
+                        message: "缺少 start 或 end 参数"
+                    });
                     return;
                 }
 
@@ -457,7 +500,7 @@ export function createAdminRouter(context) {
             }
 
             // GET /admin/queue - 任务队列状态
-            if (method === 'GET' && pathname === '/queue') {
+            if (method === "GET" && pathname === "/queue") {
                 const queueStatus = queueManager.getStatus();
                 const detailedStatus = queueManager.getDetailedStatus();
 
@@ -474,16 +517,16 @@ export function createAdminRouter(context) {
             // ==================== 请求历史 ====================
 
             // GET /admin/history - 历史记录列表
-            if (method === 'GET' && pathname === '/history') {
+            if (method === "GET" && pathname === "/history") {
                 const url = new URL(req.url, `http://${req.headers.host}`);
-                const page = parseInt(url.searchParams.get('page') || '1', 10);
-                const pageSize = parseInt(url.searchParams.get('pageSize') || '20', 10);
+                const page = parseInt(url.searchParams.get("page") || "1", 10);
+                const pageSize = parseInt(url.searchParams.get("pageSize") || "20", 10);
                 const filters = {
-                    status: url.searchParams.get('status') || null,
-                    modelId: url.searchParams.get('model') || null,
-                    search: url.searchParams.get('search') || null,
-                    startDate: url.searchParams.get('startDate') || null,
-                    endDate: url.searchParams.get('endDate') || null
+                    status: url.searchParams.get("status") || null,
+                    modelId: url.searchParams.get("model") || null,
+                    search: url.searchParams.get("search") || null,
+                    startDate: url.searchParams.get("startDate") || null,
+                    endDate: url.searchParams.get("endDate") || null
                 };
 
                 const result = getHistoryList(filters, page, pageSize);
@@ -492,11 +535,11 @@ export function createAdminRouter(context) {
             }
 
             // GET /admin/history/stats - 历史统计摘要
-            if (method === 'GET' && pathname === '/history/stats') {
+            if (method === "GET" && pathname === "/history/stats") {
                 const url = new URL(req.url, `http://${req.headers.host}`);
                 const filters = {
-                    startDate: url.searchParams.get('startDate') || null,
-                    endDate: url.searchParams.get('endDate') || null
+                    startDate: url.searchParams.get("startDate") || null,
+                    endDate: url.searchParams.get("endDate") || null
                 };
 
                 const stats = getHistoryStats(filters);
@@ -505,17 +548,20 @@ export function createAdminRouter(context) {
             }
 
             // GET /admin/history/models - 获取历史中使用过的模型列表
-            if (method === 'GET' && pathname === '/history/models') {
+            if (method === "GET" && pathname === "/history/models") {
                 const models = getHistoryModelList();
                 sendJson(res, 200, models);
                 return;
             }
 
             // GET /admin/history/media/:filepath - 静态媒体文件服务
-            if (method === 'GET' && pathname.startsWith('/history/media/')) {
-                const filepath = pathname.replace('/history/media/', '');
-                if (!filepath || filepath.includes('..')) {
-                    sendApiError(res, { code: ERROR_CODES.INVALID_REQUEST_BODY, message: '无效的文件名' });
+            if (method === "GET" && pathname.startsWith("/history/media/")) {
+                const filepath = pathname.replace("/history/media/", "");
+                if (!filepath || filepath.includes("..")) {
+                    sendApiError(res, {
+                        code: ERROR_CODES.INVALID_REQUEST_BODY,
+                        message: "无效的文件名"
+                    });
                     return;
                 }
 
@@ -524,42 +570,50 @@ export function createAdminRouter(context) {
                     const data = await fs.readFile(fullPath);
                     const ext = path.extname(filepath).toLowerCase();
                     const mimeTypes = {
-                        '.png': 'image/png',
-                        '.jpg': 'image/jpeg',
-                        '.jpeg': 'image/jpeg',
-                        '.gif': 'image/gif',
-                        '.webp': 'image/webp',
-                        '.mp4': 'video/mp4',
-                        '.webm': 'video/webm'
+                        ".png": "image/png",
+                        ".jpg": "image/jpeg",
+                        ".jpeg": "image/jpeg",
+                        ".gif": "image/gif",
+                        ".webp": "image/webp",
+                        ".mp4": "video/mp4",
+                        ".webm": "video/webm"
                     };
                     res.writeHead(200, {
-                        'Content-Type': mimeTypes[ext] || 'application/octet-stream',
-                        'Content-Length': data.length,
-                        'Cache-Control': 'public, max-age=31536000'
+                        "Content-Type": mimeTypes[ext] || "application/octet-stream",
+                        "Content-Length": data.length,
+                        "Cache-Control": "public, max-age=31536000"
                     });
                     res.end(data);
                 } catch (e) {
-                    sendApiError(res, { code: ERROR_CODES.NOT_FOUND, message: '文件不存在', status: 404 });
+                    sendApiError(res, {
+                        code: ERROR_CODES.NOT_FOUND,
+                        message: "文件不存在",
+                        status: 404
+                    });
                 }
                 return;
             }
 
             // GET /admin/history/:id - 单条记录详情
             const historyDetailMatch = pathname.match(/^\/history\/([^/]+)$/);
-            if (method === 'GET' && historyDetailMatch && !pathname.includes('/retry-media')) {
+            if (method === "GET" && historyDetailMatch && !pathname.includes("/retry-media")) {
                 const id = historyDetailMatch[1];
                 const record = getHistoryDetail(id);
                 if (record) {
                     sendJson(res, 200, record);
                 } else {
-                    sendApiError(res, { code: ERROR_CODES.NOT_FOUND, message: '记录不存在', status: 404 });
+                    sendApiError(res, {
+                        code: ERROR_CODES.NOT_FOUND,
+                        message: "记录不存在",
+                        status: 404
+                    });
                 }
                 return;
             }
 
             // POST /admin/history/:id/retry-media - 重试下载媒体
             const retryMediaMatch = pathname.match(/^\/history\/([^/]+)\/retry-media$/);
-            if (method === 'POST' && retryMediaMatch) {
+            if (method === "POST" && retryMediaMatch) {
                 const id = retryMediaMatch[1];
                 const body = await readBody(req);
                 const mediaIndex = body.mediaIndex ?? 0;
@@ -571,26 +625,34 @@ export function createAdminRouter(context) {
                     const page = poolContext?.getFirstPage?.();
                     if (page) {
                         const imgDlCfg = config?.backend?.pool?.failover || {};
-                        downloadFn = (url) => useContextDownload(url, page, {
-                            retries: imgDlCfg.imgDlRetry ? (imgDlCfg.imgDlRetryMaxRetries || 3) : 1
-                        });
+                        downloadFn = (url) =>
+                            useContextDownload(url, page, {
+                                retries: imgDlCfg.imgDlRetry
+                                    ? imgDlCfg.imgDlRetryMaxRetries || 3
+                                    : 1
+                            });
                     }
-                } catch { /* Pool 未初始化，使用后备方案 */ }
+                } catch {
+                    /* Pool 未初始化，使用后备方案 */
+                }
 
                 const result = await retryMediaDownload(id, mediaIndex, downloadFn);
                 if (result.success) {
                     sendJson(res, 200, result);
                 } else {
-                    sendApiError(res, { code: ERROR_CODES.INTERNAL_ERROR, message: result.message });
+                    sendApiError(res, {
+                        code: ERROR_CODES.INTERNAL_ERROR,
+                        message: result.message
+                    });
                 }
                 return;
             }
 
             // DELETE /admin/history - 批量删除记录
-            if (method === 'DELETE' && pathname === '/history') {
+            if (method === "DELETE" && pathname === "/history") {
                 const url = new URL(req.url, `http://${req.headers.host}`);
-                const startDate = url.searchParams.get('startDate');
-                const endDate = url.searchParams.get('endDate');
+                const startDate = url.searchParams.get("startDate");
+                const endDate = url.searchParams.get("endDate");
 
                 // 支持按日期范围删除
                 if (startDate && endDate) {
@@ -607,16 +669,18 @@ export function createAdminRouter(context) {
                     return;
                 }
 
-                sendApiError(res, { code: ERROR_CODES.INVALID_REQUEST_BODY, message: '缺少 ids 数组或日期范围参数' });
+                sendApiError(res, {
+                    code: ERROR_CODES.INVALID_REQUEST_BODY,
+                    message: "缺少 ids 数组或日期范围参数"
+                });
                 return;
             }
 
             // 404
             res.writeHead(404);
-            res.end(JSON.stringify({ error: 'Not Found' }));
-
+            res.end(JSON.stringify({ error: "Not Found" }));
         } catch (err) {
-            logger.error('管理器', `请求处理失败: ${err.message}`);
+            logger.error("管理器", `请求处理失败: ${err.message}`);
             sendApiError(res, {
                 code: ERROR_CODES.INTERNAL_ERROR,
                 message: err.message

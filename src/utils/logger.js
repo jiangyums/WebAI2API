@@ -7,25 +7,25 @@
  * - 日志文件：data/logs/system.log（超过 5MB 自动轮转）
  */
 
-import process from 'process';
-import fs from 'fs';
-import path from 'path';
+import process from "process";
+import fs from "fs";
+import path from "path";
 
-const LEVELS = ['debug', 'info', 'warn', 'error'];
+const LEVELS = ["debug", "info", "warn", "error"];
 
 // ANSI 颜色代码
 const COLORS = {
-    reset: '\x1b[0m',
-    red: '\x1b[31m',
-    yellow: '\x1b[33m',
-    blue: '\x1b[34m',
-    white: '\x1b[37m'
+    reset: "\x1b[0m",
+    red: "\x1b[31m",
+    yellow: "\x1b[33m",
+    blue: "\x1b[34m",
+    white: "\x1b[37m"
 };
 
 // 日志文件配置
-const LOG_DIR = path.join(process.cwd(), 'data', 'logs');
-const LOG_FILE = path.join(LOG_DIR, 'system.log');
-const LOG_FILE_OLD = path.join(LOG_DIR, 'system.log.old');
+const LOG_DIR = path.join(process.cwd(), "data", "logs");
+const LOG_FILE = path.join(LOG_DIR, "system.log");
+const LOG_FILE_OLD = path.join(LOG_DIR, "system.log.old");
 const MAX_LOG_SIZE = 5 * 1024 * 1024; // 5MB
 
 // 确保日志目录存在
@@ -59,7 +59,7 @@ function writeToFile(line) {
     try {
         ensureLogDir();
         rotateLogIfNeeded();
-        fs.appendFileSync(LOG_FILE, line + '\n', 'utf8');
+        fs.appendFileSync(LOG_FILE, line + "\n", "utf8");
     } catch (e) {
         // 忽略写入错误
     }
@@ -68,13 +68,13 @@ function writeToFile(line) {
 // 根据日志级别获取颜色
 function getColor(level) {
     switch (level.toLowerCase()) {
-        case 'error':
+        case "error":
             return COLORS.red;
-        case 'warn':
+        case "warn":
             return COLORS.yellow;
-        case 'info':
+        case "info":
             return COLORS.white;
-        case 'debug':
+        case "debug":
             return COLORS.blue;
         default:
             return COLORS.reset;
@@ -82,7 +82,7 @@ function getColor(level) {
 }
 
 function formatTime(date = new Date()) {
-    const pad = (n, len = 2) => n.toString().padStart(len, '0');
+    const pad = (n, len = 2) => n.toString().padStart(len, "0");
     const yyyy = date.getFullYear();
     const MM = pad(date.getMonth() + 1);
     const dd = pad(date.getDate());
@@ -93,7 +93,7 @@ function formatTime(date = new Date()) {
     return `${yyyy}-${MM}-${dd} ${HH}:${mm}:${ss}.${SSS}`;
 }
 
-let currentLogLevel = (process.env.LOG_LEVEL || 'info').toLowerCase();
+let currentLogLevel = (process.env.LOG_LEVEL || "info").toLowerCase();
 
 export function setLogLevel(level) {
     if (level && LEVELS.includes(level.toLowerCase())) {
@@ -113,17 +113,17 @@ function shouldLog(level) {
 }
 
 // 需要提取到前面用方括号显示的 meta 字段
-const FRONT_META_KEYS = ['id', 'adapter', 'model'];
+const FRONT_META_KEYS = ["id", "adapter", "model"];
 
 export function log(level, mod, msg, meta = {}) {
     if (!shouldLog(level)) return;
 
     const ts = formatTime();
-    const levelMap = { debug: 'DBUG', info: 'INFO', warn: 'WARN', error: 'ERRO' };
+    const levelMap = { debug: "DBUG", info: "INFO", warn: "WARN", error: "ERRO" };
     const levelTag = levelMap[level.toLowerCase()] || level.toUpperCase().slice(0, 4);
 
     // 将消息中的换行符替换为 ↵ 符号，保持日志为单行
-    const sanitizedMsg = msg.replace(/\r?\n/g, ' ↵ ');
+    const sanitizedMsg = msg.replace(/\r?\n/g, " ↵ ");
 
     // 提取关键字段放在前面用方括号显示
     const frontParts = [];
@@ -135,34 +135,37 @@ export function log(level, mod, msg, meta = {}) {
             remainingMeta[k] = v;
         }
     }
-    const frontStr = frontParts.length ? ' ' + frontParts.join(' ') : '';
+    const frontStr = frontParts.length ? " " + frontParts.join(" ") : "";
 
     const base = `${ts} [${levelTag}] [${mod}]${frontStr} ${sanitizedMsg}`;
 
     const metaStr = Object.keys(remainingMeta).length
-        ? ' | ' + Object.entries(remainingMeta).map(([k, v]) => {
-            if (v instanceof Error) {
-                return `${k}=${v.message}`;
-            }
-            if (typeof v === 'object' && v !== null) {
-                try {
-                    return `${k}=${JSON.stringify(v)}`;
-                } catch (e) {
-                    return `${k}=[Circular]`;
-                }
-            }
-            return `${k}=${v}`;
-        }).join(' ')
-        : '';
+        ? " | " +
+          Object.entries(remainingMeta)
+              .map(([k, v]) => {
+                  if (v instanceof Error) {
+                      return `${k}=${v.message}`;
+                  }
+                  if (typeof v === "object" && v !== null) {
+                      try {
+                          return `${k}=${JSON.stringify(v)}`;
+                      } catch (e) {
+                          return `${k}=[Circular]`;
+                      }
+                  }
+                  return `${k}=${v}`;
+              })
+              .join(" ")
+        : "";
 
     const line = base + metaStr;
     const color = getColor(level);
     const coloredLine = `${color}${line}${COLORS.reset}`;
 
     // 输出到控制台
-    if (level === 'error') {
+    if (level === "error") {
         console.error(coloredLine);
-    } else if (level === 'warn') {
+    } else if (level === "warn") {
         console.warn(coloredLine);
     } else {
         console.log(coloredLine);
@@ -216,8 +219,8 @@ export function readLogs(lines = 200) {
             return result;
         }
 
-        const content = fs.readFileSync(LOG_FILE, 'utf8');
-        const allLines = content.split('\n').filter(line => line.trim());
+        const content = fs.readFileSync(LOG_FILE, "utf8");
+        const allLines = content.split("\n").filter((line) => line.trim());
         result.total = allLines.length;
 
         // 返回最后 N 行
@@ -230,14 +233,13 @@ export function readLogs(lines = 200) {
 }
 
 export const logger = {
-    debug: (mod, msg, meta) => log('debug', mod, msg, meta),
-    info: (mod, msg, meta) => log('info', mod, msg, meta),
-    warn: (mod, msg, meta) => log('warn', mod, msg, meta),
-    error: (mod, msg, meta) => log('error', mod, msg, meta),
+    debug: (mod, msg, meta) => log("debug", mod, msg, meta),
+    info: (mod, msg, meta) => log("info", mod, msg, meta),
+    warn: (mod, msg, meta) => log("warn", mod, msg, meta),
+    error: (mod, msg, meta) => log("error", mod, msg, meta),
     setLevel: setLogLevel,
     getLogPath,
     getOldLogPath,
     clearLogs,
     readLogs
 };
-

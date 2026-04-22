@@ -9,7 +9,12 @@
 		"start": "node supervisor.js",
 		"genkey": "node scripts/genkey.js",
 		"init": "node scripts/init.js",
-		"postinstall": "node scripts/postinstall.js"
+		"postinstall": "node scripts/postinstall.js",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:run": "vitest run",
+		"lint": "prettier --check src/ AGENTS.md",
+		"format": "prettier --write src/ AGENTS.md"
 	},
 	"imports": {
 		"#config": "./src/config/index.js",
@@ -31,5 +36,9 @@
 		"sharp": "^0.34.5",
 		"socks-proxy-agent": "^8.0.5",
 		"yaml": "^2.8.2"
+	},
+	"devDependencies": {
+		"prettier": "^3.8.3",
+		"vitest": "^4.1.5"
 	}
 }

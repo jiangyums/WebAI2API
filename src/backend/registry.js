@@ -7,23 +7,23 @@
  * - 提供模型查询、策略查询、导航处理器聚合等统一接口
  */
 
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { logger } from '../utils/logger.js';
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { logger } from "../utils/logger.js";
 
 // 获取当前目录
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const ADAPTER_DIR = path.join(__dirname, 'adapter');
+const ADAPTER_DIR = path.join(__dirname, "adapter");
 
 /**
  * 图片输入策略枚举
  */
 export const IMAGE_POLICY = {
-    OPTIONAL: 'optional',
-    REQUIRED: 'required',
-    FORBIDDEN: 'forbidden'
+    OPTIONAL: "optional",
+    REQUIRED: "required",
+    FORBIDDEN: "forbidden"
 };
 
 /**
@@ -61,7 +61,7 @@ class AdapterRegistry {
 
         const inList = list.includes(modelId);
 
-        if (mode === 'whitelist') {
+        if (mode === "whitelist") {
             // 白名单模式：只有在列表中的才启用
             return inList;
         } else {
@@ -77,9 +77,9 @@ class AdapterRegistry {
         if (this.loaded) return;
 
         //logger.info('注册表', `正在扫描适配器目录: ${ADAPTER_DIR}`);
-        logger.info('注册表', `正在扫描适配器目录...`);
+        logger.info("注册表", `正在扫描适配器目录...`);
 
-        const files = fs.readdirSync(ADAPTER_DIR).filter(f => f.endsWith('.js'));
+        const files = fs.readdirSync(ADAPTER_DIR).filter((f) => f.endsWith(".js"));
 
         for (const file of files) {
             const filePath = path.join(ADAPTER_DIR, file);
@@ -87,7 +87,7 @@ class AdapterRegistry {
                 const module = await import(`file://${filePath}`);
 
                 if (!module.manifest) {
-                    logger.warn('注册表', `跳过 ${file}: 未导出 manifest`);
+                    logger.warn("注册表", `跳过 ${file}: 未导出 manifest`);
                     continue;
                 }
 
@@ -99,15 +99,17 @@ class AdapterRegistry {
                 }
 
                 this.adapters.set(manifest.id, manifest);
-                logger.debug('注册表', `已加载适配器: ${manifest.id} (${manifest.displayName || file})`);
-
+                logger.debug(
+                    "注册表",
+                    `已加载适配器: ${manifest.id} (${manifest.displayName || file})`
+                );
             } catch (err) {
-                logger.error('注册表', `加载 ${file} 失败: ${err.message}`);
+                logger.error("注册表", `加载 ${file} 失败: ${err.message}`);
             }
         }
 
         this.loaded = true;
-        logger.info('注册表', `适配器加载完成，共 ${this.adapters.size} 个可用`);
+        logger.info("注册表", `适配器加载完成，共 ${this.adapters.size} 个可用`);
     }
 
     /**
@@ -119,16 +121,16 @@ class AdapterRegistry {
     validateManifest(manifest, fileName) {
         const errors = [];
 
-        if (!manifest.id || typeof manifest.id !== 'string') {
-            errors.push('缺少 id 或类型不正确');
+        if (!manifest.id || typeof manifest.id !== "string") {
+            errors.push("缺少 id 或类型不正确");
         }
 
-        if (!manifest.generate || typeof manifest.generate !== 'function') {
-            errors.push('缺少 generate 函数');
+        if (!manifest.generate || typeof manifest.generate !== "function") {
+            errors.push("缺少 generate 函数");
         }
 
         if (!manifest.models || !Array.isArray(manifest.models)) {
-            errors.push('缺少 models 数组');
+            errors.push("缺少 models 数组");
         } else {
             for (let i = 0; i < manifest.models.length; i++) {
                 const m = manifest.models[i];
@@ -142,7 +144,7 @@ class AdapterRegistry {
         }
 
         if (errors.length > 0) {
-            logger.error('注册表', `${fileName} manifest 校验失败: ${errors.join('; ')}`);
+            logger.error("注册表", `${fileName} manifest 校验失败: ${errors.join("; ")}`);
             return false;
         }
 
@@ -184,13 +186,13 @@ class AdapterRegistry {
      */
     getTargetUrl(id, config, workerConfig) {
         const adapter = this.getAdapter(id);
-        if (!adapter) return 'about:blank';
+        if (!adapter) return "about:blank";
 
-        if (typeof adapter.getTargetUrl === 'function') {
-            return adapter.getTargetUrl(config, workerConfig) || 'about:blank';
+        if (typeof adapter.getTargetUrl === "function") {
+            return adapter.getTargetUrl(config, workerConfig) || "about:blank";
         }
 
-        return adapter.targetUrl || 'about:blank';
+        return adapter.targetUrl || "about:blank";
     }
 
     /**
@@ -223,21 +225,21 @@ class AdapterRegistry {
     getModelsForAdapter(id) {
         const adapter = this.getAdapter(id);
         if (!adapter || !adapter.models) {
-            return { object: 'list', data: [] };
+            return { object: "list", data: [] };
         }
 
         const data = adapter.models
-            .filter(m => this.isModelEnabled(id, m.id))
-            .map(m => ({
+            .filter((m) => this.isModelEnabled(id, m.id))
+            .map((m) => ({
                 id: m.id,
-                object: 'model',
+                object: "model",
                 created: Math.floor(Date.now() / 1000),
                 owned_by: id,
                 image_policy: m.imagePolicy,
-                type: m.type || 'image'
+                type: m.type || "image"
             }));
 
-        return { object: 'list', data };
+        return { object: "list", data };
     }
 
     /**
@@ -250,7 +252,7 @@ class AdapterRegistry {
         const adapter = this.getAdapter(adapterId);
         if (!adapter?.models) return false;
         // 检查模型是否存在且未被禁用
-        const modelExists = adapter.models.some(m => m.id === modelId);
+        const modelExists = adapter.models.some((m) => m.id === modelId);
         return modelExists && this.isModelEnabled(adapterId, modelId);
     }
 
@@ -266,12 +268,12 @@ class AdapterRegistry {
         if (!adapter) return null;
 
         // 如果适配器还提供了 resolveModelId 函数，调用它
-        if (typeof adapter.resolveModelId === 'function') {
+        if (typeof adapter.resolveModelId === "function") {
             return adapter.resolveModelId(modelKey);
         }
 
         // 默认行为：查找模型并返回 codeName
-        const model = adapter.models.find(m => m.id === modelKey);
+        const model = adapter.models.find((m) => m.id === modelKey);
         if (model) {
             return model.codeName || model.id;
         }
@@ -291,7 +293,7 @@ class AdapterRegistry {
             return IMAGE_POLICY.OPTIONAL;
         }
 
-        const model = adapter.models.find(m => m.id === modelKey);
+        const model = adapter.models.find((m) => m.id === modelKey);
         return model?.imagePolicy || IMAGE_POLICY.OPTIONAL;
     }
 
@@ -304,11 +306,11 @@ class AdapterRegistry {
     getModelType(adapterId, modelKey) {
         const adapter = this.getAdapter(adapterId);
         if (!adapter || !adapter.models) {
-            return 'image';
+            return "image";
         }
 
-        const model = adapter.models.find(m => m.id === modelKey);
-        return model?.type || 'image';
+        const model = adapter.models.find((m) => m.id === modelKey);
+        return model?.type || "image";
     }
 
     /**
@@ -323,17 +325,17 @@ class AdapterRegistry {
                 for (const m of adapter.models) {
                     allModels.push({
                         id: m.id,
-                        object: 'model',
+                        object: "model",
                         created: Math.floor(Date.now() / 1000),
                         owned_by: id,
                         image_policy: m.imagePolicy,
-                        type: m.type || 'image'
+                        type: m.type || "image"
                     });
                 }
             }
         }
 
-        return { object: 'list', data: allModels };
+        return { object: "list", data: allModels };
     }
 }
 

@@ -3,14 +3,14 @@
  * @description 使用 SQLite 存储请求/响应历史，支持媒体文件本地存储
  */
 
-import Database from 'better-sqlite3';
-import fs from 'fs/promises';
-import path from 'path';
-import { logger } from './logger.js';
+import Database from "better-sqlite3";
+import fs from "fs/promises";
+import path from "path";
+import { logger } from "./logger.js";
 
-const DATA_DIR = path.join(process.cwd(), 'data', 'history');
-const DB_PATH = path.join(DATA_DIR, 'history.db');
-const MEDIA_DIR = path.join(DATA_DIR, 'media');
+const DATA_DIR = path.join(process.cwd(), "data", "history");
+const DB_PATH = path.join(DATA_DIR, "history.db");
+const MEDIA_DIR = path.join(DATA_DIR, "media");
 
 /** @type {Database.Database|null} */
 let db = null;
@@ -50,7 +50,7 @@ export async function initHistoryDb() {
         CREATE INDEX IF NOT EXISTS idx_model_id ON requests(model_id);
     `);
 
-    logger.info('历史记录', '数据库初始化完成');
+    logger.info("历史记录", "数据库初始化完成");
     return db;
 }
 
@@ -60,7 +60,7 @@ export async function initHistoryDb() {
  */
 function getDb() {
     if (!db) {
-        throw new Error('历史记录数据库未初始化，请先调用 initHistoryDb()');
+        throw new Error("历史记录数据库未初始化，请先调用 initHistoryDb()");
     }
     return db;
 }
@@ -84,7 +84,7 @@ export function createRecord(data) {
         data.modelName || null,
         data.prompt || null,
         data.inputImages ? JSON.stringify(data.inputImages) : null,
-        data.status || 'pending',
+        data.status || "pending",
         data.isStreaming ? 1 : 0
     );
 
@@ -103,34 +103,38 @@ export function updateRecord(id, updates) {
     const values = [];
 
     if (updates.status !== undefined) {
-        fields.push('status = ?');
+        fields.push("status = ?");
         values.push(updates.status);
     }
     if (updates.responseText !== undefined) {
-        fields.push('response_text = ?');
+        fields.push("response_text = ?");
         values.push(updates.responseText);
     }
     if (updates.reasoningContent !== undefined) {
-        fields.push('reasoning_content = ?');
+        fields.push("reasoning_content = ?");
         values.push(updates.reasoningContent);
     }
     if (updates.responseMedia !== undefined) {
-        fields.push('response_media = ?');
-        values.push(typeof updates.responseMedia === 'string' ? updates.responseMedia : JSON.stringify(updates.responseMedia));
+        fields.push("response_media = ?");
+        values.push(
+            typeof updates.responseMedia === "string"
+                ? updates.responseMedia
+                : JSON.stringify(updates.responseMedia)
+        );
     }
     if (updates.errorMessage !== undefined) {
-        fields.push('error_message = ?');
+        fields.push("error_message = ?");
         values.push(updates.errorMessage);
     }
     if (updates.durationMs !== undefined) {
-        fields.push('duration_ms = ?');
+        fields.push("duration_ms = ?");
         values.push(updates.durationMs);
     }
 
     if (fields.length === 0) return;
 
     values.push(id);
-    const stmt = db.prepare(`UPDATE requests SET ${fields.join(', ')} WHERE id = ?`);
+    const stmt = db.prepare(`UPDATE requests SET ${fields.join(", ")} WHERE id = ?`);
     stmt.run(...values);
 }
 
@@ -147,28 +151,28 @@ export function getList(filters = {}, page = 1, pageSize = 20) {
     const conditions = [];
     const params = [];
 
-    if (filters.status && filters.status !== 'all') {
-        conditions.push('status = ?');
+    if (filters.status && filters.status !== "all") {
+        conditions.push("status = ?");
         params.push(filters.status);
     }
     if (filters.modelId) {
-        conditions.push('model_id LIKE ?');
+        conditions.push("model_id LIKE ?");
         params.push(`%${filters.modelId}%`);
     }
     if (filters.search) {
-        conditions.push('(prompt LIKE ? OR response_text LIKE ?)');
+        conditions.push("(prompt LIKE ? OR response_text LIKE ?)");
         params.push(`%${filters.search}%`, `%${filters.search}%`);
     }
     if (filters.startDate) {
-        conditions.push('created_at >= ?');
+        conditions.push("created_at >= ?");
         params.push(new Date(filters.startDate).setHours(0, 0, 0, 0));
     }
     if (filters.endDate) {
-        conditions.push('created_at <= ?');
+        conditions.push("created_at <= ?");
         params.push(new Date(filters.endDate).setHours(23, 59, 59, 999));
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
     // 获取总数
     const countStmt = db.prepare(`SELECT COUNT(*) as count FROM requests ${whereClause}`);
@@ -181,7 +185,7 @@ export function getList(filters = {}, page = 1, pageSize = 20) {
         ORDER BY created_at DESC
         LIMIT ? OFFSET ?
     `);
-    const items = dataStmt.all(...params, pageSize, offset).map(row => ({
+    const items = dataStmt.all(...params, pageSize, offset).map((row) => ({
         ...row,
         inputImages: row.input_images ? JSON.parse(row.input_images) : [],
         responseMedia: row.response_media ? JSON.parse(row.response_media) : [],
@@ -198,7 +202,7 @@ export function getList(filters = {}, page = 1, pageSize = 20) {
  */
 export function getDetail(id) {
     const db = getDb();
-    const stmt = db.prepare('SELECT * FROM requests WHERE id = ?');
+    const stmt = db.prepare("SELECT * FROM requests WHERE id = ?");
     const row = stmt.get(id);
 
     if (!row) return null;
@@ -222,8 +226,10 @@ export async function deleteRecords(ids) {
     const db = getDb();
 
     // 先获取要删除记录的媒体文件
-    const placeholders = ids.map(() => '?').join(',');
-    const selectStmt = db.prepare(`SELECT response_media FROM requests WHERE id IN (${placeholders})`);
+    const placeholders = ids.map(() => "?").join(",");
+    const selectStmt = db.prepare(
+        `SELECT response_media FROM requests WHERE id IN (${placeholders})`
+    );
     const rows = selectStmt.all(...ids);
 
     // 删除关联的媒体文件
@@ -266,9 +272,11 @@ export async function deleteByDateRange(startDate, endDate) {
     const end = new Date(endDate).setHours(23, 59, 59, 999);
 
     // 先获取要删除的记录 ID
-    const selectStmt = db.prepare('SELECT id FROM requests WHERE created_at >= ? AND created_at <= ?');
+    const selectStmt = db.prepare(
+        "SELECT id FROM requests WHERE created_at >= ? AND created_at <= ?"
+    );
     const rows = selectStmt.all(start, end);
-    const ids = rows.map(r => r.id);
+    const ids = rows.map((r) => r.id);
 
     return await deleteRecords(ids);
 }
@@ -282,10 +290,10 @@ export async function deleteByDateRange(startDate, endDate) {
  */
 export async function saveMediaToFile(dataUri, requestId, originalUrl = null) {
     const result = {
-        type: 'unknown',
-        originalUrl: originalUrl,  // 保存原始 URL 用于重试
+        type: "unknown",
+        originalUrl: originalUrl, // 保存原始 URL 用于重试
         localPath: null,
-        status: 'pending'
+        status: "pending"
     };
 
     try {
@@ -294,39 +302,43 @@ export async function saveMediaToFile(dataUri, requestId, originalUrl = null) {
         if (!match) {
             // 如果不是 data URI，可能是普通 URL
             result.originalUrl = dataUri;
-            result.status = 'external';
+            result.status = "external";
             return result;
         }
 
         const [, mimeType, base64Data] = match;
-        result.type = mimeType.startsWith('image/') ? 'image' : mimeType.startsWith('video/') ? 'video' : 'file';
+        result.type = mimeType.startsWith("image/")
+            ? "image"
+            : mimeType.startsWith("video/")
+              ? "video"
+              : "file";
 
         // 确定文件扩展名
         const extMap = {
-            'image/png': 'png',
-            'image/jpeg': 'jpg',
-            'image/gif': 'gif',
-            'image/webp': 'webp',
-            'video/mp4': 'mp4',
-            'video/webm': 'webm'
+            "image/png": "png",
+            "image/jpeg": "jpg",
+            "image/gif": "gif",
+            "image/webp": "webp",
+            "video/mp4": "mp4",
+            "video/webm": "webm"
         };
-        const ext = extMap[mimeType] || mimeType.split('/')[1] || 'bin';
+        const ext = extMap[mimeType] || mimeType.split("/")[1] || "bin";
 
         // 生成文件名
         const filename = `${requestId}_${Date.now()}.${ext}`;
         const filePath = path.join(MEDIA_DIR, filename);
 
         // 写入文件
-        const buffer = Buffer.from(base64Data, 'base64');
+        const buffer = Buffer.from(base64Data, "base64");
         await fs.writeFile(filePath, buffer);
 
         result.localPath = filePath;
-        result.status = 'downloaded';
+        result.status = "downloaded";
 
-        logger.debug('历史记录', `媒体文件已保存: ${filename}`);
+        logger.debug("历史记录", `媒体文件已保存: ${filename}`);
     } catch (error) {
-        logger.error('历史记录', `保存媒体文件失败: ${error.message}`);
-        result.status = 'failed';
+        logger.error("历史记录", `保存媒体文件失败: ${error.message}`);
+        result.status = "failed";
     }
 
     return result;
@@ -371,27 +383,27 @@ export async function processResponseMedia(result, requestId) {
 export async function retryMediaDownload(id, mediaIndex, downloadFn = null) {
     const record = getDetail(id);
     if (!record) {
-        return { success: false, message: '记录不存在' };
+        return { success: false, message: "记录不存在" };
     }
 
     const media = record.responseMedia;
     if (!media || mediaIndex >= media.length) {
-        return { success: false, message: '媒体索引无效' };
+        return { success: false, message: "媒体索引无效" };
     }
 
     const item = media[mediaIndex];
-    if (item.status === 'downloaded' && item.localPath) {
+    if (item.status === "downloaded" && item.localPath) {
         // 检查文件是否存在
         try {
             await fs.access(item.localPath);
-            return { success: true, message: '媒体已下载' };
+            return { success: true, message: "媒体已下载" };
         } catch {
             // 文件不存在，继续重试
         }
     }
 
     if (!item.originalUrl) {
-        return { success: false, message: '无原始 URL，无法重试下载' };
+        return { success: false, message: "无原始 URL，无法重试下载" };
     }
 
     // 使用浏览器上下文下载（推荐）或简单 HTTP 下载（后备）
@@ -400,7 +412,7 @@ export async function retryMediaDownload(id, mediaIndex, downloadFn = null) {
 
         if (downloadFn) {
             // 使用浏览器上下文下载
-            logger.info('历史记录', `使用浏览器下载: ${item.originalUrl}`);
+            logger.info("历史记录", `使用浏览器下载: ${item.originalUrl}`);
             const result = await downloadFn(item.originalUrl);
             if (result.error) {
                 return { success: false, message: result.error };
@@ -408,28 +420,31 @@ export async function retryMediaDownload(id, mediaIndex, downloadFn = null) {
             dataUri = result.image;
         } else {
             // 后备：简单 HTTP 下载（对于需要认证的 URL 可能会失败）
-            logger.info('历史记录', `使用 HTTP 下载: ${item.originalUrl}`);
+            logger.info("历史记录", `使用 HTTP 下载: ${item.originalUrl}`);
             const response = await fetch(item.originalUrl, {
                 timeout: 60000,
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                 }
             });
 
             if (!response.ok) {
-                return { success: false, message: `下载失败: HTTP ${response.status}（可能需要认证）` };
+                return {
+                    success: false,
+                    message: `下载失败: HTTP ${response.status}（可能需要认证）`
+                };
             }
 
             const buffer = Buffer.from(await response.arrayBuffer());
-            const contentType = response.headers.get('content-type') || 'application/octet-stream';
-            const mimeType = contentType.split(';')[0].trim();
-            dataUri = `data:${mimeType};base64,${buffer.toString('base64')}`;
+            const contentType = response.headers.get("content-type") || "application/octet-stream";
+            const mimeType = contentType.split(";")[0].trim();
+            dataUri = `data:${mimeType};base64,${buffer.toString("base64")}`;
         }
 
         // 保存到文件
         const saved = await saveMediaToFile(dataUri, id, item.originalUrl);
 
-        if (saved.status === 'downloaded') {
+        if (saved.status === "downloaded") {
             // 更新记录
             media[mediaIndex] = {
                 ...item,
@@ -437,14 +452,13 @@ export async function retryMediaDownload(id, mediaIndex, downloadFn = null) {
             };
             updateRecord(id, { responseMedia: media });
 
-            logger.info('历史记录', `媒体重试下载成功: ${saved.localPath}`);
-            return { success: true, message: '下载成功' };
+            logger.info("历史记录", `媒体重试下载成功: ${saved.localPath}`);
+            return { success: true, message: "下载成功" };
         } else {
-            return { success: false, message: '保存文件失败' };
+            return { success: false, message: "保存文件失败" };
         }
-
     } catch (error) {
-        logger.error('历史记录', `媒体重试下载失败: ${error.message}`);
+        logger.error("历史记录", `媒体重试下载失败: ${error.message}`);
         return { success: false, message: `下载失败: ${error.message}` };
     }
 }
@@ -461,15 +475,15 @@ export function getStats(filters = {}) {
     const params = [];
 
     if (filters.startDate) {
-        conditions.push('created_at >= ?');
+        conditions.push("created_at >= ?");
         params.push(new Date(filters.startDate).setHours(0, 0, 0, 0));
     }
     if (filters.endDate) {
-        conditions.push('created_at <= ?');
+        conditions.push("created_at <= ?");
         params.push(new Date(filters.endDate).setHours(23, 59, 59, 999));
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
     const stmt = db.prepare(`
         SELECT
@@ -495,8 +509,10 @@ export function getStats(filters = {}) {
  */
 export function getModelList() {
     const db = getDb();
-    const stmt = db.prepare('SELECT DISTINCT model_id FROM requests WHERE model_id IS NOT NULL ORDER BY model_id');
-    return stmt.all().map(r => r.model_id);
+    const stmt = db.prepare(
+        "SELECT DISTINCT model_id FROM requests WHERE model_id IS NOT NULL ORDER BY model_id"
+    );
+    return stmt.all().map((r) => r.model_id);
 }
 
 /**

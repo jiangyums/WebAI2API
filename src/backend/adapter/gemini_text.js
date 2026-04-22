@@ -2,23 +2,18 @@
  * @fileoverview Google Gemini 文本生成适配器
  */
 
-import {
-    sleep,
-    humanType,
-    safeClick,
-    uploadFilesViaChooser
-} from '../engine/utils.js';
+import { sleep, humanType, safeClick, uploadFilesViaChooser } from "../engine/utils.js";
 import {
     normalizePageError,
     normalizeHttpError,
     waitForInput,
     gotoWithCheck,
     waitApiResponse
-} from '../utils/index.js';
-import { logger } from '../../utils/logger.js';
+} from "../utils/index.js";
+import { logger } from "../../utils/logger.js";
 
 // --- 配置常量 ---
-const TARGET_URL = 'https://gemini.google.com/app?hl=en';
+const TARGET_URL = "https://gemini.google.com/app?hl=en";
 
 /**
  * 执行文本生成任务
@@ -32,19 +27,19 @@ const TARGET_URL = 'https://gemini.google.com/app?hl=en';
 async function generate(context, prompt, imgPaths, modelId, meta = {}) {
     const { page, config } = context;
     const waitTimeout = config?.backend?.pool?.waitTimeout ?? 120000;
-    const inputLocator = page.getByRole('textbox');
-    const sendBtnLocator = page.getByRole('button', { name: 'Send message' });
+    const inputLocator = page.getByRole("textbox");
+    const sendBtnLocator = page.getByRole("button", { name: "Send message" });
 
     try {
-        logger.info('适配器', '开启新会话...', meta);
+        logger.info("适配器", "开启新会话...", meta);
         await gotoWithCheck(page, TARGET_URL);
 
         try {
-            logger.debug('适配器', '尝试点击 Temporary chat...', meta);
-            const tempChatBtn = page.getByRole('button', { name: 'Temporary chat' });
-            await safeClick(page, tempChatBtn, { bias: 'button', timeout: 3000 });
+            logger.debug("适配器", "尝试点击 Temporary chat...", meta);
+            const tempChatBtn = page.getByRole("button", { name: "Temporary chat" });
+            await safeClick(page, tempChatBtn, { bias: "button", timeout: 3000 });
         } catch (e) {
-            logger.debug('适配器', '未找到 Temporary chat 按钮或点击失败，忽略', meta);
+            logger.debug("适配器", "未找到 Temporary chat 按钮或点击失败，忽略", meta);
         }
 
         // 1. 等待输入框加载
@@ -52,112 +47,139 @@ async function generate(context, prompt, imgPaths, modelId, meta = {}) {
 
         // 2. 上传图片
         if (imgPaths && imgPaths.length > 0) {
-            logger.info('适配器', `开始上传 ${imgPaths.length} 张图片...`, meta);
-            logger.debug('适配器', '点击加号按钮...', meta);
-            const uploadMenuBtn = page.getByRole('button', { name: 'Open upload file menu' });
-            await safeClick(page, uploadMenuBtn, { bias: 'button' });
+            logger.info("适配器", `开始上传 ${imgPaths.length} 张图片...`, meta);
+            logger.debug("适配器", "点击加号按钮...", meta);
+            const uploadMenuBtn = page.getByRole("button", {
+                name: "Open upload file menu"
+            });
+            await safeClick(page, uploadMenuBtn, { bias: "button" });
 
-            const uploadFilesBtn = page.getByRole('menuitem', { name: /Upload files/ });
-            await uploadFilesViaChooser(page, uploadFilesBtn, imgPaths, {
-                uploadValidator: (response) => {
-                    const url = response.url();
-                    return response.status() === 200 &&
-                        url.includes('google.com/upload/') &&
-                        url.includes('upload_id=');
-                }
-            }, meta);
-            logger.info('适配器', '图片上传完成', meta);
+            const uploadFilesBtn = page.getByRole("menuitem", {
+                name: /Upload files/
+            });
+            await uploadFilesViaChooser(
+                page,
+                uploadFilesBtn,
+                imgPaths,
+                {
+                    uploadValidator: (response) => {
+                        const url = response.url();
+                        return (
+                            response.status() === 200 &&
+                            url.includes("google.com/upload/") &&
+                            url.includes("upload_id=")
+                        );
+                    }
+                },
+                meta
+            );
+            logger.info("适配器", "图片上传完成", meta);
         }
 
         // 3. 输入提示词
-        logger.info('适配器', '输入提示词...', meta);
-        await safeClick(page, inputLocator, { bias: 'input' });
+        logger.info("适配器", "输入提示词...", meta);
+        await safeClick(page, inputLocator, { bias: "input" });
         await humanType(page, inputLocator, prompt);
 
         // 4. 选择模型
         if (modelId) {
             try {
-                logger.debug('适配器', `准备选择模型: ${modelId}`, meta);
+                logger.debug("适配器", `准备选择模型: ${modelId}`, meta);
 
                 // 点击打开模型选择菜单
-                const modePickerBtn = page.getByRole('button', { name: 'Open mode picker' });
-                await safeClick(page, modePickerBtn, { bias: 'button' });
+                const modePickerBtn = page.getByRole("button", {
+                    name: "Open mode picker"
+                });
+                await safeClick(page, modePickerBtn, { bias: "button" });
                 await sleep(300, 500);
 
                 // 获取所有 menuitem 选项的文本
-                const menuItemsLocator = page.getByRole('menuitem');
+                const menuItemsLocator = page.getByRole("menuitem");
                 const menuItemsCount = await menuItemsLocator.count();
 
                 if (menuItemsCount === 0) {
-                    logger.warn('适配器', '未找到模型选项，使用默认模型', meta);
+                    logger.warn("适配器", "未找到模型选项，使用默认模型", meta);
                 } else {
                     // 获取所有选项的文本（去除前后空白）
                     const itemTexts = await menuItemsLocator.allTextContents();
 
-                    logger.debug('适配器', `可用模型选项: [${itemTexts.map(t => t.trim()).join('], [')}]`, meta);
+                    logger.debug(
+                        "适配器",
+                        `可用模型选项: [${itemTexts.map((t) => t.trim()).join("], [")}]`,
+                        meta
+                    );
 
                     // 判断是否有 Pro 选项
-                    const hasPro = itemTexts.some(text => text.trim().startsWith('Pro'));
+                    const hasPro = itemTexts.some((text) => text.trim().startsWith("Pro"));
 
                     // 确定要选择的目标选项文本前缀
                     let targetPrefix = null;
 
                     if (hasPro) {
                         // 有 Pro 选项的情况
-                        if (modelId === 'gemini-3.1-pro') {
-                            targetPrefix = 'Pro';
-                        } else if (modelId === 'gemini-3.1-flash-thinking') {
-                            targetPrefix = 'Thinking';
+                        if (modelId === "gemini-3.1-pro") {
+                            targetPrefix = "Pro";
+                        } else if (modelId === "gemini-3.1-flash-thinking") {
+                            targetPrefix = "Thinking";
                         } else {
-                            targetPrefix = 'Fast';
+                            targetPrefix = "Fast";
                         }
                     } else {
                         // 没有 Pro 选项的情况
-                        if (modelId === 'gemini-3.1-pro' || modelId === 'gemini-3.1-flash-thinking') {
-                            targetPrefix = 'Thinking';
+                        if (
+                            modelId === "gemini-3.1-pro" ||
+                            modelId === "gemini-3.1-flash-thinking"
+                        ) {
+                            targetPrefix = "Thinking";
                         } else {
-                            targetPrefix = 'Fast';
+                            targetPrefix = "Fast";
                         }
                     }
 
-                    logger.debug('适配器', `目标模型前缀: "${targetPrefix}"`, meta);
+                    logger.debug("适配器", `目标模型前缀: "${targetPrefix}"`, meta);
 
                     // 使用 locator 直接定位目标选项（避免缓存元素引用导致 detached 错误）
-                    const targetItem = menuItemsLocator.filter({ hasText: new RegExp(`^\\s*${targetPrefix}`) }).first();
+                    const targetItem = menuItemsLocator
+                        .filter({ hasText: new RegExp(`^\\s*${targetPrefix}`) })
+                        .first();
 
-                    if (await targetItem.count() > 0) {
-                        const selectedText = (await targetItem.textContent() || '').trim();
-                        await safeClick(page, targetItem, { bias: 'button' });
-                        logger.info('适配器', `已选择模型: "${selectedText}"`, meta);
+                    if ((await targetItem.count()) > 0) {
+                        const selectedText = ((await targetItem.textContent()) || "").trim();
+                        await safeClick(page, targetItem, { bias: "button" });
+                        logger.info("适配器", `已选择模型: "${selectedText}"`, meta);
                     } else {
-                        logger.warn('适配器', `未找到匹配的模型选项 (${targetPrefix})，使用默认模型`, meta);
+                        logger.warn(
+                            "适配器",
+                            `未找到匹配的模型选项 (${targetPrefix})，使用默认模型`,
+                            meta
+                        );
                         // 按 Escape 关闭菜单
-                        await page.keyboard.press('Escape');
+                        await page.keyboard.press("Escape");
                     }
                 }
             } catch (e) {
-                logger.warn('适配器', `模型选择失败: ${e.message}，继续使用默认模型`, meta);
+                logger.warn("适配器", `模型选择失败: ${e.message}，继续使用默认模型`, meta);
                 // 尝试关闭可能打开的菜单
                 try {
-                    await page.keyboard.press('Escape');
-                } catch { }
+                    await page.keyboard.press("Escape");
+                } catch {}
             }
         }
 
         // 5. 先启动 API 监听
-        logger.debug('适配器', '启动 API 监听...', meta);
+        logger.debug("适配器", "启动 API 监听...", meta);
         const apiResponsePromise = waitApiResponse(page, {
-            urlMatch: 'assistant.lamda.BardFrontendService/StreamGenerate',
-            method: 'POST',
+            urlMatch: "assistant.lamda.BardFrontendService/StreamGenerate",
+            method: "POST",
             timeout: waitTimeout,
             meta
         });
 
         // 6. 发送提示词
-        logger.info('适配器', '发送提示词...', meta);
-        await safeClick(page, sendBtnLocator, { bias: 'button' });
+        logger.info("适配器", "发送提示词...", meta);
+        await safeClick(page, sendBtnLocator, { bias: "button" });
 
-        logger.info('适配器', '等待生成结果...', meta);
+        logger.info("适配器", "等待生成结果...", meta);
 
         // 7. 等待 API 响应
         let apiResponse;
@@ -172,48 +194,53 @@ async function generate(context, prompt, imgPaths, modelId, meta = {}) {
         // 检查 HTTP 错误
         const httpError = normalizeHttpError(apiResponse);
         if (httpError) {
-            logger.error('适配器', `API 返回错误: ${httpError.error}`, meta);
+            logger.error("适配器", `API 返回错误: ${httpError.error}`, meta);
             return { error: `API 返回错误: ${httpError.error}` };
         }
 
         // 6. 解析响应体
         const bodyBuffer = await apiResponse.body();
-        logger.debug('适配器', `收到响应体，字节数: ${bodyBuffer.length}`, meta);
+        logger.debug("适配器", `收到响应体，字节数: ${bodyBuffer.length}`, meta);
 
         const { text, reasoning } = getFinalAiTextFromResponse(bodyBuffer);
 
         if (text) {
-            logger.info('适配器', `解析成功，文本长度: ${text.length}，思考长度: ${reasoning?.length || 0}`, meta);
+            logger.info(
+                "适配器",
+                `解析成功，文本长度: ${text.length}，思考长度: ${reasoning?.length || 0}`,
+                meta
+            );
             return reasoning ? { text, reasoning } : { text };
         } else {
-            return { error: '未能从响应中提取文本' };
+            return { error: "未能从响应中提取文本" };
         }
-
     } catch (err) {
         const pageError = normalizePageError(err, meta);
         if (pageError) return pageError;
 
-        logger.error('适配器', '生成任务失败', { ...meta, error: err.message });
+        logger.error("适配器", "生成任务失败", { ...meta, error: err.message });
         return { error: `生成任务失败: ${err.message}` };
-    } finally { }
+    } finally {
+    }
 }
 
 /**
  * 适配器 manifest
  */
 export const manifest = {
-    id: 'gemini_text',
-    displayName: 'Google Gemini (文本生成)',
-    description: '使用 Google Gemini 官网生成文本，支持多模型切换和图片上传。需要已登录的 Google 账户。',
+    id: "gemini_text",
+    displayName: "Google Gemini (文本生成)",
+    description:
+        "使用 Google Gemini 官网生成文本，支持多模型切换和图片上传。需要已登录的 Google 账户。",
 
     getTargetUrl(config, workerConfig) {
         return TARGET_URL;
     },
 
     models: [
-        { id: 'gemini-3.1-flash', imagePolicy: 'optional', type: 'text' },
-        { id: 'gemini-3.1-flash-thinking', imagePolicy: 'optional', type: 'text' },
-        { id: 'gemini-3.1-pro', imagePolicy: 'optional', type: 'text' }
+        { id: "gemini-3.1-flash", imagePolicy: "optional", type: "text" },
+        { id: "gemini-3.1-flash-thinking", imagePolicy: "optional", type: "text" },
+        { id: "gemini-3.1-pro", imagePolicy: "optional", type: "text" }
     ],
 
     navigationHandlers: [],
@@ -262,7 +289,7 @@ function parseLenFramedResponse(buf) {
         const lineBuf = readLineBuf();
         if (lineBuf === null) break;
 
-        const lineStr = lineBuf.toString('utf8').trim();
+        const lineStr = lineBuf.toString("utf8").trim();
         if (!lineStr) continue;
 
         // 先找长度行（纯数字）
@@ -276,7 +303,7 @@ function parseLenFramedResponse(buf) {
         //   1) 先尝试解析当前行
         //   2) 若报“JSON 未结束”一类错误，再把后续行拼上重试（极少见）
         let chunkBuf = lineBuf;
-        let chunkStr = chunkBuf.toString('utf8').trim();
+        let chunkStr = chunkBuf.toString("utf8").trim();
 
         while (true) {
             try {
@@ -284,7 +311,7 @@ function parseLenFramedResponse(buf) {
                 break;
             } catch (e) {
                 // 只有在明显是“截断/未结束”的情况下，才继续拼下一行
-                const msg = String(e && e.message || '');
+                const msg = String((e && e.message) || "");
                 const looksTruncated = /Unexpected end of JSON input|Unterminated string/.test(msg);
 
                 if (!looksTruncated) {
@@ -292,9 +319,9 @@ function parseLenFramedResponse(buf) {
                     const tail = chunkStr.slice(-220);
                     throw new Error(
                         `Chunk JSON parse failed: ${msg}\n` +
-                        `Chunk head: ${head}\n` +
-                        `Chunk tail: ${tail}\n` +
-                        `LenHeader: ${pendingLen} | ActualBytes: ${Buffer.byteLength(chunkStr, 'utf8')}`
+                            `Chunk head: ${head}\n` +
+                            `Chunk tail: ${tail}\n` +
+                            `LenHeader: ${pendingLen} | ActualBytes: ${Buffer.byteLength(chunkStr, "utf8")}`
                     );
                 }
 
@@ -306,13 +333,13 @@ function parseLenFramedResponse(buf) {
                     const tail = chunkStr.slice(-220);
                     throw new Error(
                         `Chunk JSON parse failed: ${msg} (EOF)\n` +
-                        `Chunk head: ${head}\n` +
-                        `Chunk tail: ${tail}\n` +
-                        `LenHeader: ${pendingLen} | ActualBytes: ${Buffer.byteLength(chunkStr, 'utf8')}`
+                            `Chunk head: ${head}\n` +
+                            `Chunk tail: ${tail}\n` +
+                            `LenHeader: ${pendingLen} | ActualBytes: ${Buffer.byteLength(chunkStr, "utf8")}`
                     );
                 }
 
-                const nextStr = next.toString('utf8').trim();
+                const nextStr = next.toString("utf8").trim();
                 if (/^\d+$/.test(nextStr)) {
                     // 回退，交给外层当作下一段的 length line
                     i = savedPos;
@@ -320,15 +347,15 @@ function parseLenFramedResponse(buf) {
                     const tail = chunkStr.slice(-220);
                     throw new Error(
                         `Chunk JSON parse failed: ${msg} (hit next length line)\n` +
-                        `Chunk head: ${head}\n` +
-                        `Chunk tail: ${tail}\n` +
-                        `LenHeader: ${pendingLen} | ActualBytes: ${Buffer.byteLength(chunkStr, 'utf8')}`
+                            `Chunk head: ${head}\n` +
+                            `Chunk tail: ${tail}\n` +
+                            `LenHeader: ${pendingLen} | ActualBytes: ${Buffer.byteLength(chunkStr, "utf8")}`
                     );
                 }
 
                 // 把分隔符 \n 加回去
-                chunkBuf = Buffer.concat([chunkBuf, Buffer.from('\n'), next]);
-                chunkStr = chunkBuf.toString('utf8').trim();
+                chunkBuf = Buffer.concat([chunkBuf, Buffer.from("\n"), next]);
+                chunkStr = chunkBuf.toString("utf8").trim();
             }
         }
 
@@ -381,7 +408,7 @@ function collectRcTextsDeep(root) {
                 maybeRc.startsWith("rc_") &&
                 Array.isArray(maybeArr)
             ) {
-                const text = maybeArr.filter(v => typeof v === "string").join("");
+                const text = maybeArr.filter((v) => typeof v === "string").join("");
                 if (text) {
                     const prev = bestByRc.get(maybeRc) || "";
                     if (text.length >= prev.length) bestByRc.set(maybeRc, text);
@@ -403,8 +430,8 @@ function collectRcTextsDeep(root) {
  * @returns {{text: string, thinking: string}}
  */
 function extractTextAndThinking(payload) {
-    let text = '';
-    let thinking = '';
+    let text = "";
+    let thinking = "";
 
     try {
         if (!Array.isArray(payload)) return { text, thinking };
@@ -412,15 +439,19 @@ function extractTextAndThinking(payload) {
         // 找 rc 节点 (通常在 payload[4][0])
         // 结构: payload[4][0] = ["rc_xxx", ["text..."], ..., [37]: [[thinking]]]
         let rc = null;
-        if (payload[4] && Array.isArray(payload[4][0]) &&
-            typeof payload[4][0][0] === 'string' && payload[4][0][0].startsWith('rc_')) {
+        if (
+            payload[4] &&
+            Array.isArray(payload[4][0]) &&
+            typeof payload[4][0][0] === "string" &&
+            payload[4][0][0].startsWith("rc_")
+        ) {
             rc = payload[4][0];
         }
 
         if (!rc) return { text, thinking };
 
         // 文本在 rc[1][0]
-        if (Array.isArray(rc[1]) && typeof rc[1][0] === 'string') {
+        if (Array.isArray(rc[1]) && typeof rc[1][0] === "string") {
             text = rc[1][0];
         }
 
@@ -428,7 +459,7 @@ function extractTextAndThinking(payload) {
         // 结构: rc[37] = [["**Thinking Title**\n\nThinking content..."]]
         try {
             if (rc[37] && Array.isArray(rc[37]) && rc[37][0] && Array.isArray(rc[37][0])) {
-                if (typeof rc[37][0][0] === 'string') {
+                if (typeof rc[37][0][0] === "string") {
                     thinking = rc[37][0][0];
                 }
             }
@@ -451,8 +482,8 @@ function getFinalAiTextFromResponse(bodyBuffer) {
     const frames = parseLenFramedResponse(bodyBuffer);
     const payloads = extractPayloads(frames);
 
-    let bestText = '';
-    let bestThinking = '';
+    let bestText = "";
+    let bestThinking = "";
 
     // 遍历所有 payload，保留最长的 text 和对应的 thinking
     for (const payload of payloads) {

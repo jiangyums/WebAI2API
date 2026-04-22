@@ -3,7 +3,7 @@
  * @description 图片下载与 Base64 转换
  */
 
-import { logger } from '../../utils/logger.js';
+import { logger } from "../../utils/logger.js";
 
 /**
  * 判断错误是否可重试
@@ -11,7 +11,9 @@ import { logger } from '../../utils/logger.js';
  * @returns {boolean}
  */
 function isRetryableError(message) {
-    return /timeout|network|econnreset|econnrefused|etimedout|disconnected|tls|socket/i.test(message);
+    return /timeout|network|econnreset|econnrefused|etimedout|disconnected|tls|socket/i.test(
+        message
+    );
 }
 
 /**
@@ -38,28 +40,31 @@ export async function useContextDownload(url, page, options = {}) {
                 const status = response.status();
                 // 5xx 错误可重试
                 if (status >= 500 && attempt < maxAttempts) {
-                    logger.warn('下载', `HTTP ${status}，重试 ${attempt}/${maxAttempts}...`);
-                    await new Promise(r => setTimeout(r, retryDelay * attempt));
+                    logger.warn("下载", `HTTP ${status}，重试 ${attempt}/${maxAttempts}...`);
+                    await new Promise((r) => setTimeout(r, retryDelay * attempt));
                     continue;
                 }
                 return { error: `下载失败: HTTP ${status}`, imageUrl: url };
             }
 
             const buffer = await response.body();
-            const base64 = buffer.toString('base64');
-            const contentType = response.headers()['content-type'] || 'image/png';
-            const mimeType = contentType.split(';')[0].trim();
+            const base64 = buffer.toString("base64");
+            const contentType = response.headers()["content-type"] || "image/png";
+            const mimeType = contentType.split(";")[0].trim();
 
             return { image: `data:${mimeType};base64,${base64}`, imageUrl: url };
         } catch (e) {
             if (isRetryableError(e.message) && attempt < maxAttempts) {
-                logger.warn('下载', `${e.message}，重试 ${attempt}/${maxAttempts}...`);
-                await new Promise(r => setTimeout(r, retryDelay * attempt));
+                logger.warn("下载", `${e.message}，重试 ${attempt}/${maxAttempts}...`);
+                await new Promise((r) => setTimeout(r, retryDelay * attempt));
                 continue;
             }
-            return { error: `已获取结果，但图片下载时遇到错误: ${e.message}`, imageUrl: url };
+            return {
+                error: `已获取结果，但图片下载时遇到错误: ${e.message}`,
+                imageUrl: url
+            };
         }
     }
 
-    return { error: '下载失败: 已达最大重试次数', imageUrl: url };
+    return { error: "下载失败: 已达最大重试次数", imageUrl: url };
 }

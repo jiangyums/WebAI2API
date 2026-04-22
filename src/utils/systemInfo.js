@@ -3,23 +3,25 @@
  * @description 提供系统状态、数据文件夹管理等功能
  */
 
-import os from 'os';
-import fs from 'fs';
-import path from 'path';
-import { logger } from './logger.js';
+import os from "os";
+import fs from "fs";
+import path from "path";
+import { logger } from "./logger.js";
 
 // 服务启动时间
 const startTime = Date.now();
 
 // 版本信息（从 package.json 读取）
-let version = '1.0.0';
+let version = "1.0.0";
 try {
-    const pkgPath = path.join(process.cwd(), 'package.json');
+    const pkgPath = path.join(process.cwd(), "package.json");
     if (fs.existsSync(pkgPath)) {
-        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-        version = pkg.version || '1.0.0';
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+        version = pkg.version || "1.0.0";
     }
-} catch (e) { /* ignore */ }
+} catch (e) {
+    /* ignore */
+}
 
 // CPU 使用率采样数据
 let lastCpuInfo = null;
@@ -54,7 +56,7 @@ function getCpuUsage() {
     lastCpuInfo = currentInfo;
 
     if (totalDiff === 0) return 0;
-    const usage = 100 - (idleDiff / totalDiff * 100);
+    const usage = 100 - (idleDiff / totalDiff) * 100;
     return Math.round(usage * 10) / 10;
 }
 
@@ -69,10 +71,10 @@ export function getSystemStatus() {
 
     // 检测运行模式
     const isXvfb = !!process.env.XVFB_RUNNING;
-    const isHeadless = process.env.HEADLESS === 'true';
+    const isHeadless = process.env.HEADLESS === "true";
 
     return {
-        status: isXvfb ? 'xvfb' : (isHeadless ? 'headless' : 'normal'),
+        status: isXvfb ? "xvfb" : isHeadless ? "headless" : "normal",
         version,
         systemVersion: `${os.type()} ${os.release()}`,
         uptime: Math.floor((Date.now() - startTime) / 1000),
@@ -91,7 +93,7 @@ export function getSystemStatus() {
  * @returns {object[]} 数据文件夹信息
  */
 export function getDataFolders(workers = []) {
-    const dataDir = path.join(process.cwd(), 'data');
+    const dataDir = path.join(process.cwd(), "data");
 
     if (!fs.existsSync(dataDir)) {
         return [];
@@ -109,14 +111,16 @@ export function getDataFolders(workers = []) {
     }
 
     for (const entry of entries) {
-        if (entry.isDirectory() && entry.name.startsWith('camoufoxUserData')) {
+        if (entry.isDirectory() && entry.name.startsWith("camoufoxUserData")) {
             const folderPath = path.join(dataDir, entry.name);
             let size = 0;
 
             // 计算文件夹大小（递归，但限制深度避免性能问题）
             try {
                 size = getFolderSize(folderPath, 3);
-            } catch (e) { /* ignore */ }
+            } catch (e) {
+                /* ignore */
+            }
 
             folders.push({
                 name: entry.name,
@@ -138,7 +142,7 @@ export function getDataFolders(workers = []) {
  * @returns {{success: boolean, deleted: string[], errors: string[]}}
  */
 export function deleteDataFolders(folderNames, workers = []) {
-    const dataDir = path.join(process.cwd(), 'data');
+    const dataDir = path.join(process.cwd(), "data");
     const deleted = [];
     const errors = [];
 
@@ -152,7 +156,7 @@ export function deleteDataFolders(folderNames, workers = []) {
 
     for (const name of folderNames) {
         // 安全检查：只允许删除 camoufoxUserData 开头的文件夹
-        if (!name.startsWith('camoufoxUserData')) {
+        if (!name.startsWith("camoufoxUserData")) {
             errors.push(`${name}: 不允许删除非用户数据文件夹`);
             continue;
         }
@@ -175,7 +179,7 @@ export function deleteDataFolders(folderNames, workers = []) {
         try {
             fs.rmSync(folderPath, { recursive: true, force: true });
             deleted.push(name);
-            logger.info('系统', `已删除数据文件夹: ${name}`);
+            logger.info("系统", `已删除数据文件夹: ${name}`);
         } catch (e) {
             errors.push(`${name}: ${e.message}`);
         }
@@ -205,11 +209,13 @@ export function clearTempFiles(tempDir) {
             try {
                 fs.unlinkSync(path.join(tempDir, file));
                 cleaned++;
-            } catch (e) { /* ignore */ }
+            } catch (e) {
+                /* ignore */
+            }
         }
-        logger.info('系统', `已清理 ${cleaned} 个临时文件`);
+        logger.info("系统", `已清理 ${cleaned} 个临时文件`);
     } catch (e) {
-        logger.warn('系统', `清理临时文件失败: ${e.message}`);
+        logger.warn("系统", `清理临时文件失败: ${e.message}`);
     }
 
     return { success: true, cleaned };
@@ -234,7 +240,9 @@ function getFolderSize(dirPath, maxDepth) {
         if (entry.isFile()) {
             try {
                 size += fs.statSync(fullPath).size;
-            } catch (e) { /* ignore */ }
+            } catch (e) {
+                /* ignore */
+            }
         } else if (entry.isDirectory()) {
             size += getFolderSize(fullPath, maxDepth - 1);
         }

@@ -3,7 +3,7 @@
  * @description 提供与 Supervisor 进程通信的能力
  */
 
-import net from 'net';
+import net from "net";
 
 /**
  * 发送重启信号给 Supervisor
@@ -14,23 +14,21 @@ export async function sendRestartSignal(extraArgs = []) {
     const ipcPath = process.env.SUPERVISOR_IPC;
 
     if (!ipcPath) {
-        console.warn('[IPC] 未运行在 Supervisor 模式下，无法发送重启信号');
+        console.warn("[IPC] 未运行在 Supervisor 模式下，无法发送重启信号");
         return false;
     }
 
     return new Promise((resolve) => {
         const client = net.createConnection(ipcPath, () => {
             // 格式: RESTART 或 RESTART:arg1 arg2
-            const command = extraArgs.length > 0
-                ? `RESTART:${extraArgs.join(' ')}`
-                : 'RESTART';
+            const command = extraArgs.length > 0 ? `RESTART:${extraArgs.join(" ")}` : "RESTART";
             client.write(command);
             client.end();
             resolve(true);
         });
 
-        client.on('error', (err) => {
-            console.error('[IPC] 连接 Supervisor 失败:', err.message);
+        client.on("error", (err) => {
+            console.error("[IPC] 连接 Supervisor 失败:", err.message);
             resolve(false);
         });
     });
@@ -44,19 +42,19 @@ export async function sendStopSignal() {
     const ipcPath = process.env.SUPERVISOR_IPC;
 
     if (!ipcPath) {
-        console.warn('[IPC] 未运行在 Supervisor 模式下，无法发送停止信号');
+        console.warn("[IPC] 未运行在 Supervisor 模式下，无法发送停止信号");
         return false;
     }
 
     return new Promise((resolve) => {
         const client = net.createConnection(ipcPath, () => {
-            client.write('STOP');
+            client.write("STOP");
             client.end();
             resolve(true);
         });
 
-        client.on('error', (err) => {
-            console.error('[IPC] 连接 Supervisor 失败:', err.message);
+        client.on("error", (err) => {
+            console.error("[IPC] 连接 Supervisor 失败:", err.message);
             resolve(false);
         });
     });
@@ -83,15 +81,15 @@ export async function getVncInfo() {
 
     return new Promise((resolve) => {
         const client = net.createConnection(ipcPath, () => {
-            client.write('GET_VNC_INFO');
+            client.write("GET_VNC_INFO");
         });
 
-        let data = '';
-        client.on('data', (chunk) => {
+        let data = "";
+        client.on("data", (chunk) => {
             data += chunk.toString();
         });
 
-        client.on('end', () => {
+        client.on("end", () => {
             try {
                 const info = JSON.parse(data.trim());
                 resolve(info);
@@ -100,7 +98,7 @@ export async function getVncInfo() {
             }
         });
 
-        client.on('error', () => {
+        client.on("error", () => {
             resolve(null);
         });
 

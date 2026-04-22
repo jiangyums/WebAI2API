@@ -7,17 +7,17 @@
  * - 初始化/拷贝配置请使用 `config.example.yaml` + `scripts/config-init.js`。
  */
 
-import fs from 'fs';
-import path from 'path';
-import yaml from 'yaml';
+import fs from "fs";
+import path from "path";
+import yaml from "yaml";
 
-import { logger } from '../utils/logger.js';
+import { logger } from "../utils/logger.js";
 
 // --- 配置文件路径常量 ---
-const DATA_DIR = path.join(process.cwd(), 'data');
-const DATA_CONFIG_PATH = path.join(DATA_DIR, 'config.yaml');
-const ROOT_CONFIG_PATH = path.join(process.cwd(), 'config.yaml');
-const EXAMPLE_CONFIG_PATH = path.join(process.cwd(), 'config.example.yaml');
+const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_CONFIG_PATH = path.join(DATA_DIR, "config.yaml");
+const ROOT_CONFIG_PATH = path.join(process.cwd(), "config.yaml");
+const EXAMPLE_CONFIG_PATH = path.join(process.cwd(), "config.example.yaml");
 
 // 模块级缓存：确保配置只从磁盘读取一次
 let cachedConfig = null;
@@ -43,7 +43,7 @@ function resolveConfigPath() {
         }
         // 移动文件到 data 目录
         fs.renameSync(ROOT_CONFIG_PATH, DATA_CONFIG_PATH);
-        logger.info('配置器', `已将 ${ROOT_CONFIG_PATH} 迁移到 ${DATA_CONFIG_PATH}`);
+        logger.info("配置器", `已将 ${ROOT_CONFIG_PATH} 迁移到 ${DATA_CONFIG_PATH}`);
         return DATA_CONFIG_PATH;
     }
 
@@ -54,7 +54,7 @@ function resolveConfigPath() {
             fs.mkdirSync(DATA_DIR, { recursive: true });
         }
         fs.copyFileSync(EXAMPLE_CONFIG_PATH, DATA_CONFIG_PATH);
-        logger.info('配置器', `已从 ${EXAMPLE_CONFIG_PATH} 复制配置到 ${DATA_CONFIG_PATH}`);
+        logger.info("配置器", `已从 ${EXAMPLE_CONFIG_PATH} 复制配置到 ${DATA_CONFIG_PATH}`);
         return DATA_CONFIG_PATH;
     }
 
@@ -79,9 +79,9 @@ export function getConfigPath() {
  * @returns {string} 完整的用户数据目录路径
  */
 function resolveUserDataDir(userDataMark) {
-    const baseDir = path.join(process.cwd(), 'data');
+    const baseDir = path.join(process.cwd(), "data");
     if (!userDataMark) {
-        return path.join(baseDir, 'camoufoxUserData');
+        return path.join(baseDir, "camoufoxUserData");
     }
     return path.join(baseDir, `camoufoxUserData_${userDataMark}`);
 }
@@ -133,13 +133,19 @@ function validateWorker(worker, instanceName, index) {
         throw new Error(`instances[${instanceName}].workers[${index}] 缺少必需字段: name`);
     }
     if (!worker.type) {
-        throw new Error(`instances[${instanceName}].workers[${index}] (${worker.name}) 缺少必需字段: type`);
+        throw new Error(
+            `instances[${instanceName}].workers[${index}] (${worker.name}) 缺少必需字段: type`
+        );
     }
     // 移除对 type 的硬编码校验，允许动态加载新适配器
     // if (!VALID_ADAPTER_TYPES.includes(worker.type)) { ... }
 
-    if (worker.type === 'merge') {
-        if (!worker.mergeTypes || !Array.isArray(worker.mergeTypes) || worker.mergeTypes.length === 0) {
+    if (worker.type === "merge") {
+        if (
+            !worker.mergeTypes ||
+            !Array.isArray(worker.mergeTypes) ||
+            worker.mergeTypes.length === 0
+        ) {
             throw new Error(`Worker "${worker.name}" 类型为 merge，但缺少有效的 mergeTypes 数组`);
         }
     }
@@ -205,50 +211,60 @@ export function loadConfig() {
     const configPath = getConfigPath();
 
     if (!fs.existsSync(configPath)) {
-        throw new Error(`未找到配置文件: ${configPath}。请确保 data/config.yaml、config.yaml 或 config.example.yaml 存在。`);
+        throw new Error(
+            `未找到配置文件: ${configPath}。请确保 data/config.yaml、config.yaml 或 config.example.yaml 存在。`
+        );
     }
 
-    const configFile = fs.readFileSync(configPath, 'utf8');
+    const configFile = fs.readFileSync(configPath, "utf8");
     let config = yaml.parse(configFile);
-    if (!config || typeof config !== 'object') {
+    if (!config || typeof config !== "object") {
         throw new Error(`配置文件解析失败: ${configPath}`);
     }
 
     // Docker 路径兼容处理
-    if ((!config.browser?.path || !fs.existsSync(config.browser.path)) &&
-        fs.existsSync('/app/camoufox/camoufox')) {
-        logger.info('配置器', '检测到容器环境，自动修正浏览器路径为 /app/camoufox/camoufox');
+    if (
+        (!config.browser?.path || !fs.existsSync(config.browser.path)) &&
+        fs.existsSync("/app/camoufox/camoufox")
+    ) {
+        logger.info("配置器", "检测到容器环境，自动修正浏览器路径为 /app/camoufox/camoufox");
         if (!config.browser) config.browser = {};
-        config.browser.path = '/app/camoufox/camoufox';
+        config.browser.path = "/app/camoufox/camoufox";
     }
 
     // 基础配置校验
     if (!config.server || !config.server.port) {
-        throw new Error('配置文件缺少必需字段: server.port');
+        throw new Error("配置文件缺少必需字段: server.port");
     }
     // 端口类型和范围校验
     const port = config.server.port;
-    if (typeof port !== 'number' || !Number.isInteger(port) || port < 1 || port > 65535) {
+    if (typeof port !== "number" || !Number.isInteger(port) || port < 1 || port > 65535) {
         throw new Error(`server.port 必须是 1-65535 范围内的整数，当前值: ${port}`);
     }
     // Auth Token 校验：允许留空，但输出安全警告
     if (!config.server.auth) {
-        logger.warn('配置器', 'server.auth 未配置！API 和 WebUI 将无需认证即可访问！');
-        logger.warn('配置器', '请勿在公网环境中留空 auth，建议使用 npm run genkey 生成密钥');
-    } else if (config.server.auth === 'sk-change-me-to-your-secure-key') {
-        logger.warn('配置器', '检测到默认密钥！请勿在公网环境中使用默认密钥');
-    } else if (typeof config.server.auth !== 'string' || config.server.auth.length < 10) {
-        logger.warn('配置器', 'server.auth 长度少于 10 个字符，安全性较低，建议使用 npm run genkey 生成密钥');
+        logger.warn("配置器", "server.auth 未配置！API 和 WebUI 将无需认证即可访问！");
+        logger.warn("配置器", "请勿在公网环境中留空 auth，建议使用 npm run genkey 生成密钥");
+    } else if (config.server.auth === "sk-change-me-to-your-secure-key") {
+        logger.warn("配置器", "检测到默认密钥！请勿在公网环境中使用默认密钥");
+    } else if (typeof config.server.auth !== "string" || config.server.auth.length < 10) {
+        logger.warn(
+            "配置器",
+            "server.auth 长度少于 10 个字符，安全性较低，建议使用 npm run genkey 生成密钥"
+        );
     }
 
     // 设置 keepalive 配置默认值
     if (!config.server.keepalive) {
-        config.server.keepalive = { mode: 'comment' };
+        config.server.keepalive = { mode: "comment" };
     } else {
-        if (config.server.keepalive.mode === undefined) config.server.keepalive.mode = 'comment';
-        if (!['comment', 'content'].includes(config.server.keepalive.mode)) {
-            logger.warn('配置器', `无效的 keepalive.mode: ${config.server.keepalive.mode}，使用默认值 comment`);
-            config.server.keepalive.mode = 'comment';
+        if (config.server.keepalive.mode === undefined) config.server.keepalive.mode = "comment";
+        if (!["comment", "content"].includes(config.server.keepalive.mode)) {
+            logger.warn(
+                "配置器",
+                `无效的 keepalive.mode: ${config.server.keepalive.mode}，使用默认值 comment`
+            );
+            config.server.keepalive.mode = "comment";
         }
     }
 
@@ -263,11 +279,14 @@ export function loadConfig() {
     if (!config.backend.pool) config.backend.pool = {};
 
     if (!config.backend.pool.strategy) {
-        config.backend.pool.strategy = 'least_busy';
+        config.backend.pool.strategy = "least_busy";
     }
-    if (!['least_busy', 'round_robin', 'random'].includes(config.backend.pool.strategy)) {
-        logger.warn('配置器', `无效的 pool.strategy: ${config.backend.pool.strategy}，使用默认值 least_busy`);
-        config.backend.pool.strategy = 'least_busy';
+    if (!["least_busy", "round_robin", "random"].includes(config.backend.pool.strategy)) {
+        logger.warn(
+            "配置器",
+            `无效的 pool.strategy: ${config.backend.pool.strategy}，使用默认值 least_busy`
+        );
+        config.backend.pool.strategy = "least_busy";
     }
 
     // 故障转移配置默认值
@@ -289,10 +308,10 @@ export function loadConfig() {
 
     // 校验 instances 配置
     if (!config.backend.pool.instances || !Array.isArray(config.backend.pool.instances)) {
-        throw new Error('配置文件缺少必需字段: backend.pool.instances');
+        throw new Error("配置文件缺少必需字段: backend.pool.instances");
     }
     if (config.backend.pool.instances.length === 0) {
-        throw new Error('backend.pool.instances 不能为空数组');
+        throw new Error("backend.pool.instances 不能为空数组");
     }
 
     // 展开 instances 为扁平化的 workers 数组
@@ -322,10 +341,13 @@ export function loadConfig() {
 
     // 校验 gemini_biz 配置（如果有 Worker 使用）
     const hasGeminiBizWorker = config.backend.pool.workers.some(
-        w => w.type === 'gemini_biz' || (w.type === 'merge' && w.mergeTypes?.includes('gemini_biz'))
+        (w) =>
+            w.type === "gemini_biz" || (w.type === "merge" && w.mergeTypes?.includes("gemini_biz"))
     );
     if (hasGeminiBizWorker && !config.backend.adapter.gemini_biz?.entryUrl) {
-        throw new Error('存在 gemini_biz 类型的 Worker，但 backend.adapter.gemini_biz.entryUrl 未配置');
+        throw new Error(
+            "存在 gemini_biz 类型的 Worker，但 backend.adapter.gemini_biz.entryUrl 未配置"
+        );
     }
 
     // 设置日志级别
@@ -334,10 +356,13 @@ export function loadConfig() {
     }
 
     // 日志输出
-    logger.debug('配置器', `已加载配置文件: ${configPath}`);
-    logger.debug('配置器', `Instances: ${config.backend.pool.instances.length}, Workers: ${config.backend.pool.workers.length}`);
-    logger.debug('配置器', `调度策略: ${config.backend.pool.strategy}`);
-    logger.debug('配置器', `流式心跳模式: ${config.server.keepalive.mode}`);
+    logger.debug("配置器", `已加载配置文件: ${configPath}`);
+    logger.debug(
+        "配置器",
+        `Instances: ${config.backend.pool.instances.length}, Workers: ${config.backend.pool.workers.length}`
+    );
+    logger.debug("配置器", `调度策略: ${config.backend.pool.strategy}`);
+    logger.debug("配置器", `流式心跳模式: ${config.server.keepalive.mode}`);
 
     // 缓存配置
     cachedConfig = config;

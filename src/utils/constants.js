@@ -40,7 +40,7 @@ export const TIMEOUTS = {
     HEARTBEAT_INTERVAL: 3000,
 
     /** 轮询间隔（waitForInput 等） */
-    POLL_INTERVAL: 500,
+    POLL_INTERVAL: 500
 };
 
 // ==========================================
@@ -59,11 +59,7 @@ export const RETRY = {
     BASE_DELAY: 1000,
 
     /** 可重试的错误类型 */
-    RETRYABLE_ERRORS: [
-        'NETWORK_ERROR',
-        'TIMEOUT_ERROR',
-        'PAGE_CRASHED',
-    ],
+    RETRYABLE_ERRORS: ["NETWORK_ERROR", "TIMEOUT_ERROR", "PAGE_CRASHED"]
 };
 
 // ==========================================
@@ -85,5 +81,5 @@ export const HUMAN_DELAYS = {
     LONG: { min: 1500, max: 2500 },
 
     /** 打字间隔 */
-    TYPING: { min: 30, max: 100 },
+    TYPING: { min: 30, max: 100 }
 };

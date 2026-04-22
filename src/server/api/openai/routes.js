@@ -3,11 +3,11 @@
  * @description 处理 /v1 路径下的所有 API 请求
  */
 
-import crypto from 'crypto';
-import { logger } from '../../../utils/logger.js';
-import { ERROR_CODES } from '../../errors.js';
-import { sendJson, sendApiError } from '../../respond.js';
-import { parseRequest } from './parse.js';
+import crypto from "crypto";
+import { logger } from "../../../utils/logger.js";
+import { ERROR_CODES } from "../../errors.js";
+import { sendJson, sendApiError } from "../../respond.js";
+import { parseRequest } from "./parse.js";
 
 /**
  * 创建 OpenAI API 路由处理器
@@ -51,9 +51,12 @@ export function createOpenAIRouter(context) {
                 cookies: result.cookies
             });
         } catch (err) {
-            logger.error('服务器', '获取 Cookies 失败', { id: requestId, error: err.message });
+            logger.error("服务器", "获取 Cookies 失败", {
+                id: requestId,
+                error: err.message
+            });
 
-            if (err.message.includes('Worker 不存在') || err.message.includes('Worker not found')) {
+            if (err.message.includes("Worker 不存在") || err.message.includes("Worker not found")) {
                 sendApiError(res, {
                     code: ERROR_CODES.INVALID_MODEL,
                     message: err.message
@@ -84,7 +87,10 @@ export function createOpenAIRouter(context) {
             // 限流检查
             if (!isStreaming && !queueManager.canAcceptNonStreaming()) {
                 const status = queueManager.getStatus();
-                logger.warn('服务器', '非流式请求被拒绝 (队列已满)', { id: requestId, queueSize: status.total });
+                logger.warn("服务器", "非流式请求被拒绝 (队列已满)", {
+                    id: requestId,
+                    queueSize: status.total
+                });
                 sendApiError(res, {
                     code: ERROR_CODES.SERVER_BUSY,
                     message: `服务器繁忙（队列: ${status.total}/${queueManager.maxQueueSize}）。请使用流式模式 (stream: true) 或稍后重试。`
@@ -95,9 +101,9 @@ export function createOpenAIRouter(context) {
             // 设置 SSE 响应头
             if (isStreaming) {
                 res.writeHead(200, {
-                    'Content-Type': 'text/event-stream',
-                    'Cache-Control': 'no-cache',
-                    'Connection': 'keep-alive'
+                    "Content-Type": "text/event-stream",
+                    "Cache-Control": "no-cache",
+                    Connection: "keep-alive"
                 });
             }
 
@@ -125,7 +131,10 @@ export function createOpenAIRouter(context) {
             const { prompt, imagePaths, modelId, modelName } = parseResult.data;
             const reasoning = data.reasoning === true;
 
-            logger.info('服务器', `[队列] 请求入队: ${prompt.slice(0, 100)}...`, { id: requestId, images: imagePaths.length });
+            logger.info("服务器", `[队列] 请求入队: ${prompt.slice(0, 100)}...`, {
+                id: requestId,
+                images: imagePaths.length
+            });
 
             // 加入队列
             queueManager.addTask({
@@ -139,9 +148,11 @@ export function createOpenAIRouter(context) {
                 isStreaming,
                 reasoning
             });
-
         } catch (err) {
-            logger.error('服务器', '请求处理失败', { id: requestId, error: err.message });
+            logger.error("服务器", "请求处理失败", {
+                id: requestId,
+                error: err.message
+            });
             sendApiError(res, {
                 code: ERROR_CODES.INTERNAL_ERROR,
                 message: err.message
@@ -159,13 +170,13 @@ export function createOpenAIRouter(context) {
     return async function handleOpenAIRequest(req, res, pathname, parsedUrl) {
         const requestId = crypto.randomUUID().slice(0, 8);
 
-        if (req.method === 'GET' && pathname === '/models') {
+        if (req.method === "GET" && pathname === "/models") {
             handleModels(res);
-        } else if (req.method === 'GET' && pathname === '/cookies') {
-            const workerName = parsedUrl.searchParams.get('name');
-            const domain = parsedUrl.searchParams.get('domain');
+        } else if (req.method === "GET" && pathname === "/cookies") {
+            const workerName = parsedUrl.searchParams.get("name");
+            const domain = parsedUrl.searchParams.get("domain");
             await handleCookies(res, requestId, workerName, domain);
-        } else if (req.method === 'POST' && pathname.startsWith('/chat/completions')) {
+        } else if (req.method === "POST" && pathname.startsWith("/chat/completions")) {
             await handleChatCompletions(req, res, requestId);
         } else {
             res.writeHead(404);
