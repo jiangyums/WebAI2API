@@ -9,20 +9,20 @@
  * - 子进程崩溃时自动重启
  */
 
-import { spawn, spawnSync } from 'child_process';
-import net from 'net';
-import os from 'os';
-import path from 'path';
-import fs from 'fs';
+import { spawn, spawnSync } from "child_process";
+import net from "net";
+import os from "os";
+import path from "path";
+import fs from "fs";
 
 // ==================== 配置 ====================
 
-const isWindows = os.platform() === 'win32';
+const isWindows = os.platform() === "win32";
 
 // IPC 通道路径
 const IPC_PATH = isWindows
-    ? '\\\\.\\pipe\\webai2api-supervisor'
-    : path.join(os.tmpdir(), 'webai2api-supervisor.sock');
+    ? "\\\\.\\pipe\\webai2api-supervisor"
+    : path.join(os.tmpdir(), "webai2api-supervisor.sock");
 
 // 重启延迟（毫秒）
 const RESTART_DELAY = 1000;
@@ -34,43 +34,43 @@ let restartArgs = null;
 
 /**
  * 简单日志
- * @param {string} level 
- * @param {string} message 
+ * @param {string} level
+ * @param {string} message
  */
 function log(level, message) {
     const now = new Date();
-    const pad = (n, len = 2) => String(n).padStart(len, '0');
+    const pad = (n, len = 2) => String(n).padStart(len, "0");
     const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
     const time = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}.${pad(now.getMilliseconds(), 3)}`;
-    const levelTag = level === 'ERROR' ? 'ERRO' : level;
+    const levelTag = level === "ERROR" ? "ERRO" : level;
     console.log(`${date} ${time} [${levelTag}] [看门狗] ${message}`);
 }
 
 /**
  * 检查命令是否存在（Linux）
- * @param {string} cmd 
+ * @param {string} cmd
  * @returns {boolean}
  */
 function checkCommand(cmd) {
     if (isWindows) return true;
-    const result = spawnSync('which', [cmd], { encoding: 'utf8' });
+    const result = spawnSync("which", [cmd], { encoding: "utf8" });
     return result.status === 0;
 }
 
 /**
  * 检查端口是否可用
- * @param {number} port 
+ * @param {number} port
  * @returns {Promise<boolean>}
  */
 function isPortAvailable(port) {
     return new Promise((resolve) => {
         const server = net.createServer();
-        server.once('error', () => resolve(false));
-        server.once('listening', () => {
+        server.once("error", () => resolve(false));
+        server.once("listening", () => {
             server.close();
             resolve(true);
         });
-        server.listen(port, '127.0.0.1');
+        server.listen(port, "127.0.0.1");
     });
 }
 
@@ -92,7 +92,7 @@ async function findAvailablePort(startPort, maxTries = 10) {
 
 /**
  * 检查 Xvfb 显示号是否可用
- * @param {number} displayNum 
+ * @param {number} displayNum
  * @returns {boolean}
  */
 function isDisplayAvailable(displayNum) {
@@ -127,7 +127,7 @@ let isRestarting = false;
 let vncInfo = {
     enabled: false,
     port: 5900,
-    display: ':99',
+    display: ":99",
     xvfbMode: false
 };
 
@@ -139,42 +139,47 @@ function startIpcServer() {
     if (!isWindows && fs.existsSync(IPC_PATH)) {
         try {
             fs.unlinkSync(IPC_PATH);
-        } catch { }
+        } catch {}
     }
 
     const ipcServer = net.createServer((socket) => {
-        socket.on('data', (data) => {
+        socket.on("data", (data) => {
             const command = data.toString().trim();
 
-            if (command === 'RESTART' || command.startsWith('RESTART:')) {
+            if (command === "RESTART" || command.startsWith("RESTART:")) {
                 // 支持 RESTART:参数 格式
-                const extraArgs = command.includes(':') ? command.split(':')[1].split(' ').filter(Boolean) : [];
-                log('INFO', `收到 IPC 指令: RESTART${extraArgs.length ? ' (参数: ' + extraArgs.join(' ') + ')' : ''}`);
-                socket.write('OK\n');
+                const extraArgs = command.includes(":")
+                    ? command.split(":")[1].split(" ").filter(Boolean)
+                    : [];
+                log(
+                    "INFO",
+                    `收到 IPC 指令: RESTART${extraArgs.length ? " (参数: " + extraArgs.join(" ") + ")" : ""}`
+                );
+                socket.write("OK\n");
                 socket.end();
                 restartServer(extraArgs);
-            } else if (command === 'STOP') {
-                log('INFO', '收到 IPC 指令: STOP');
-                socket.write('OK\n');
+            } else if (command === "STOP") {
+                log("INFO", "收到 IPC 指令: STOP");
+                socket.write("OK\n");
                 socket.end();
                 stopAll();
-            } else if (command === 'GET_VNC_INFO') {
+            } else if (command === "GET_VNC_INFO") {
                 // 返回 VNC 状态信息并关闭连接
-                socket.write(JSON.stringify(vncInfo) + '\n');
+                socket.write(JSON.stringify(vncInfo) + "\n");
                 socket.end();
             } else {
-                socket.write('UNKNOWN_COMMAND\n');
+                socket.write("UNKNOWN_COMMAND\n");
                 socket.end();
             }
         });
     });
 
     ipcServer.listen(IPC_PATH, () => {
-        log('INFO', `IPC 服务器已启动: ${IPC_PATH}`);
+        log("INFO", `IPC 服务器已启动: ${IPC_PATH}`);
     });
 
-    ipcServer.on('error', (err) => {
-        log('ERROR', `IPC 服务器错误: ${err.message}`);
+    ipcServer.on("error", (err) => {
+        log("ERROR", `IPC 服务器错误: ${err.message}`);
     });
 
     return ipcServer;
@@ -184,7 +189,7 @@ function startIpcServer() {
 
 // 不可恢复的退出码（不应自动重启）
 const FATAL_EXIT_CODES = [
-    78,  // 配置/依赖错误
+    78 // 配置/依赖错误
 ];
 
 /**
@@ -192,11 +197,11 @@ const FATAL_EXIT_CODES = [
  * @param {string[]} [extraArgs] - 额外的命令行参数
  */
 function startServer(extraArgs = []) {
-    const serverPath = path.join(process.cwd(), 'src', 'server', 'server.js');
+    const serverPath = path.join(process.cwd(), "src", "server", "server.js");
 
     // 检查 server.js 是否存在
     if (!fs.existsSync(serverPath)) {
-        log('ERROR', `未找到 server.js: ${serverPath}`);
+        log("ERROR", `未找到 server.js: ${serverPath}`);
         process.exit(1);
     }
 
@@ -206,17 +211,17 @@ function startServer(extraArgs = []) {
         SUPERVISOR_IPC: IPC_PATH
     };
 
-    log('INFO', '正在启动子服务 (src/server/server.js)...');
+    log("INFO", "正在启动子服务 (src/server/server.js)...");
 
     serverProcess = spawn(process.execPath, args, {
         cwd: process.cwd(),
         env,
-        stdio: 'inherit'  // 将子进程 stdio 直接输出到主控制台
+        stdio: "inherit" // 将子进程 stdio 直接输出到主控制台
     });
 
-    serverProcess.on('exit', (code, signal) => {
+    serverProcess.on("exit", (code, signal) => {
         if (isRestarting) {
-            log('INFO', '子服务已停止，准备重启...');
+            log("INFO", "子服务已停止，准备重启...");
             isRestarting = false;
             // 如果有新参数，使用新参数；否则使用原参数
             const argsToUse = restartArgs !== null ? restartArgs : extraArgs;
@@ -225,19 +230,19 @@ function startServer(extraArgs = []) {
         } else if (code !== 0 && code !== null) {
             // 检查是否为不可恢复的错误
             if (FATAL_EXIT_CODES.includes(code)) {
-                log('ERROR', `子服务因配置/依赖错误退出 (code: ${code})，不会自动重启`);
+                log("ERROR", `子服务因配置/依赖错误退出 (code: ${code})，不会自动重启`);
                 process.exit(code);
             }
-            log('WARN', `子服务异常退出 (code: ${code})，将自动重启...`);
+            log("WARN", `子服务异常退出 (code: ${code})，将自动重启...`);
             setTimeout(() => startServer(extraArgs), RESTART_DELAY);
         } else {
-            log('INFO', '子服务已正常退出');
+            log("INFO", "子服务已正常退出");
             process.exit(0);
         }
     });
 
-    serverProcess.on('error', (err) => {
-        log('ERROR', `子服务启动失败: ${err.message}`);
+    serverProcess.on("error", (err) => {
+        log("ERROR", `子服务启动失败: ${err.message}`);
         process.exit(1);
     });
 }
@@ -248,12 +253,12 @@ function startServer(extraArgs = []) {
  */
 function restartServer(newArgs = null) {
     if (isRestarting) {
-        log('WARN', '重启已在进行中，忽略重复请求');
+        log("WARN", "重启已在进行中，忽略重复请求");
         return;
     }
 
     isRestarting = true;
-    log('INFO', '正在重启子服务...');
+    log("INFO", "正在重启子服务...");
 
     // 如果提供了新参数，更新启动参数
     if (newArgs !== null) {
@@ -261,7 +266,7 @@ function restartServer(newArgs = null) {
     }
 
     if (serverProcess) {
-        serverProcess.kill('SIGTERM');
+        serverProcess.kill("SIGTERM");
     }
 }
 
@@ -269,10 +274,10 @@ function restartServer(newArgs = null) {
  * 停止所有服务
  */
 function stopAll() {
-    log('INFO', '正在停止所有服务...');
+    log("INFO", "正在停止所有服务...");
 
     if (serverProcess) {
-        serverProcess.kill('SIGTERM');
+        serverProcess.kill("SIGTERM");
     }
 
     setTimeout(() => process.exit(0), 500);
@@ -285,48 +290,48 @@ function stopAll() {
  * @param {string[]} originalArgs - 原始命令行参数
  */
 function startInXvfb(originalArgs) {
-    if (!checkCommand('xvfb-run')) {
-        log('ERROR', '未找到 xvfb-run 命令');
-        log('ERROR', '请先安装 Xvfb:');
-        log('ERROR', ' - Ubuntu/Debian: sudo apt install xvfb');
-        log('ERROR', ' - CentOS/RHEL:   sudo dnf install xorg-x11-server-Xvfb');
+    if (!checkCommand("xvfb-run")) {
+        log("ERROR", "未找到 xvfb-run 命令");
+        log("ERROR", "请先安装 Xvfb:");
+        log("ERROR", " - Ubuntu/Debian: sudo apt install xvfb");
+        log("ERROR", " - CentOS/RHEL:   sudo dnf install xorg-x11-server-Xvfb");
         process.exit(1);
     }
 
     // 查找可用的显示号（从 50 开始，避免与常用的冲突）
     const displayNum = findAvailableDisplay(50);
-    log('INFO', `正在启动 Xvfb 虚拟显示器 (显示号: :${displayNum})...`);
+    log("INFO", `正在启动 Xvfb 虚拟显示器 (显示号: :${displayNum})...`);
 
     // 移除 -xvfb 参数
-    const newArgs = originalArgs.filter(arg => arg !== '-xvfb');
+    const newArgs = originalArgs.filter((arg) => arg !== "-xvfb");
 
     const xvfbArgs = [
         `--server-num=${displayNum}`,
-        '--server-args=-ac -screen 0 1366x768x24',
-        'env',
-        'XVFB_RUNNING=true',
+        "--server-args=-ac -screen 0 1366x768x24",
+        "env",
+        "XVFB_RUNNING=true",
         `DISPLAY=:${displayNum}`,
         process.argv[0],
         process.argv[1],
         ...newArgs
     ];
 
-    const xvfbProcess = spawn('xvfb-run', xvfbArgs, {
-        stdio: 'inherit'
+    const xvfbProcess = spawn("xvfb-run", xvfbArgs, {
+        stdio: "inherit"
     });
 
-    xvfbProcess.on('error', (err) => {
-        log('ERROR', `Xvfb 启动失败: ${err.message}`);
+    xvfbProcess.on("error", (err) => {
+        log("ERROR", `Xvfb 启动失败: ${err.message}`);
         process.exit(1);
     });
 
-    xvfbProcess.on('exit', (code) => {
+    xvfbProcess.on("exit", (code) => {
         process.exit(code || 0);
     });
 
     // 处理退出信号
-    process.on('SIGINT', () => xvfbProcess.kill('SIGTERM'));
-    process.on('SIGTERM', () => xvfbProcess.kill('SIGTERM'));
+    process.on("SIGINT", () => xvfbProcess.kill("SIGTERM"));
+    process.on("SIGTERM", () => xvfbProcess.kill("SIGTERM"));
 }
 
 /**
@@ -334,41 +339,48 @@ function startInXvfb(originalArgs) {
  * @param {string} display - 显示器编号
  */
 async function startVncServer(display) {
-    if (!checkCommand('x11vnc')) {
-        log('WARN', '未找到 x11vnc 命令，跳过 VNC 启动');
+    if (!checkCommand("x11vnc")) {
+        log("WARN", "未找到 x11vnc 命令，跳过 VNC 启动");
         return;
     }
 
     // 查找可用的 VNC 端口（从 5900 开始）
     const vncPort = await findAvailablePort(5900, 100);
     if (!vncPort) {
-        log('ERROR', '无法找到可用的 VNC 端口 (5900-5999)');
+        log("ERROR", "无法找到可用的 VNC 端口 (5900-5999)");
         return;
     }
 
-    log('INFO', `正在启动 VNC 服务器 (端口: ${vncPort})...`);
+    log("INFO", `正在启动 VNC 服务器 (端口: ${vncPort})...`);
 
-    const vncProcess = spawn('x11vnc', [
-        '-display', display,
-        '-rfbport', String(vncPort),
-        '-localhost',
-        '-nopw',
-        '-shared',
-        '-forever',
-        '-noxdamage',
-        '-norc',
-        '-geometry', '1366x768'
-    ], {
-        stdio: 'ignore',
-        detached: false
-    });
+    const vncProcess = spawn(
+        "x11vnc",
+        [
+            "-display",
+            display,
+            "-rfbport",
+            String(vncPort),
+            "-localhost",
+            "-nopw",
+            "-shared",
+            "-forever",
+            "-noxdamage",
+            "-norc",
+            "-geometry",
+            "1366x768"
+        ],
+        {
+            stdio: "ignore",
+            detached: false
+        }
+    );
 
-    vncProcess.on('error', (err) => {
-        log('WARN', `VNC 启动失败: ${err.message}`);
+    vncProcess.on("error", (err) => {
+        log("WARN", `VNC 启动失败: ${err.message}`);
         vncInfo.enabled = false;
     });
 
-    vncProcess.on('exit', () => {
+    vncProcess.on("exit", () => {
         vncInfo.enabled = false;
     });
 
@@ -377,23 +389,193 @@ async function startVncServer(display) {
     vncInfo.port = vncPort;
     vncInfo.display = display;
 
-    log('INFO', `VNC 服务器已启动，端口: ${vncPort}`);
+    log("INFO", `VNC 服务器已启动，端口: ${vncPort}`);
 
     // 处理退出信号
-    process.on('SIGINT', () => vncProcess.kill('SIGTERM'));
-    process.on('SIGTERM', () => vncProcess.kill('SIGTERM'));
+    process.on("SIGINT", () => vncProcess.kill("SIGTERM"));
+    process.on("SIGTERM", () => vncProcess.kill("SIGTERM"));
 }
 
 // ==================== 主入口 ====================
 
+/**
+ * 检测并清理残留进程
+ * @param {number} port - HTTP 端口
+ */
+async function cleanupStaleProcesses(port) {
+    // 1. 检测 IPC 管道是否被占用（Windows 和 Linux）
+    const ipcPath = IPC_PATH;
+    log("INFO", "正在检查残留进程...");
+
+    // 先尝试删除 IPC 管道文件
+    if (fs.existsSync(ipcPath)) {
+        try {
+            fs.unlinkSync(ipcPath);
+            log("INFO", "已删除 IPC 管道");
+        } catch (e) {
+            log("WARN", "IPC 管道删除失败，尝试通过 PID 清理...");
+            // Windows 命名管道不能直接删除，需要先终止占用进程
+            await killProcessesUsingNamedPipe(ipcPath);
+        }
+    }
+
+    // 等待一小段时间让端口释放
+    await new Promise((r) => setTimeout(r, 500));
+
+    // 2. 检测并清理占用端口的进程
+    const portInUse = await isPortAvailable(port);
+    if (!portInUse) {
+        log("WARN", "端口 " + port + " 已被占用，正在清理...");
+        await killProcessesOnPort(port);
+        await new Promise((r) => setTimeout(r, 1000));
+    }
+
+    // 3. 清理残留的浏览器进程
+    await cleanupStaleBrowserProcesses();
+    log("INFO", "残留进程清理完成");
+}
+
+/**
+ * 通过命名管道名称查找并终止进程（Windows）
+ * @param {string} pipeName
+ */
+async function killProcessesUsingNamedPipe(pipeName) {
+    return new Promise((resolve) => {
+        // 直接终止所有 node.exe 进程，除了当前进程
+        const tasklist = spawn("tasklist", ["/FO", "CSV", "/NH"], { shell: true });
+        let taskOutput = "";
+
+        tasklist.stdout.on("data", (data) => {
+            taskOutput += data.toString();
+        });
+
+        tasklist.on("close", () => {
+            const lines = taskOutput.trim().split("\n");
+            let killed = false;
+
+            for (const line of lines) {
+                // CSV 格式: "Image Name","PID","Session Name","Session#","Mem Usage"
+                const parts = line.split(",");
+                if (parts.length >= 2) {
+                    const imageName = (parts[0] || "").replace(/"/g, "").trim();
+                    const pidStr = (parts[1] || "").replace(/"/g, "").trim();
+                    const pid = parseInt(pidStr);
+
+                    if (imageName === "node.exe" && pid && pid !== process.pid) {
+                        log("WARN", "正在终止残留进程 PID: " + pid);
+                        spawn("taskkill /F /PID " + pid, [], { shell: true, stdio: "ignore" });
+                        killed = true;
+                    }
+                }
+            }
+
+            setTimeout(resolve, killed ? 2000 : 500);
+        });
+
+        tasklist.on("error", () => setTimeout(resolve, 500));
+    });
+}
+
+/**
+ * 通过端口号查找并终止进程
+ * @param {number} port
+ */
+async function killProcessesOnPort(port) {
+    return new Promise((resolve) => {
+        let cmd, args;
+
+        if (isWindows) {
+            cmd = "netstat";
+            args = ["-ano"];
+        } else {
+            cmd = "lsof";
+            args = ["-ti:" + port];
+        }
+
+        const proc = spawn(cmd, args, { shell: true });
+        let output = "";
+
+        proc.stdout.on("data", (data) => {
+            output += data.toString();
+        });
+
+        proc.on("close", () => {
+            const lines = output.trim().split("\n").filter(Boolean);
+            let pid = null;
+
+            if (isWindows) {
+                for (const line of lines) {
+                    if (line.includes(":" + port) && line.includes("LISTENING")) {
+                        const parts = line.trim().split(/\s+/);
+                        pid = parts[parts.length - 1];
+                        break;
+                    }
+                }
+            } else {
+                pid = output.trim();
+            }
+
+            if (pid && pid !== String(process.pid)) {
+                log("INFO", `正在终止残留进程 PID: ${pid}`);
+                const killCmd = isWindows ? `taskkill /F /PID ${pid}` : `kill -9 ${pid}`;
+                spawn(killCmd, [], { shell: true, stdio: "ignore" });
+            }
+
+            setTimeout(resolve, 500);
+        });
+
+        proc.on("error", resolve);
+    });
+}
+
+/**
+ * 清理残留的浏览器进程（Camoufox/Firefox）
+ */
+async function cleanupStaleBrowserProcesses() {
+    return new Promise((resolve) => {
+        const browsers = ["camoufox", "firefox", "camoufox.exe", "firefox.exe"];
+        let killed = false;
+
+        for (const browser of browsers) {
+            const cmd = isWindows ? "tasklist" : "ps";
+            const args = isWindows
+                ? ["/FI", "IMAGENAME eq " + browser, "/FO", "CSV", "/NH"]
+                : ["-C", browser, "-o", "pid="];
+
+            const proc = spawn(cmd, args, { shell: true });
+            let output = "";
+
+            proc.stdout.on("data", (data) => {
+                output += data.toString();
+            });
+
+            proc.on("close", () => {
+                if (output.trim()) {
+                    log("WARN", `检测到残留浏览器进程，正在清理...`);
+                    const killCmd = isWindows
+                        ? `taskkill /F /IM ${browser}`
+                        : `pkill -9 ${browser}`;
+                    spawn(killCmd, [], { shell: true, stdio: "ignore" });
+                    killed = true;
+                }
+            });
+        }
+
+        setTimeout(resolve, 500);
+    });
+}
+
 async function main() {
     const args = process.argv.slice(2);
-    const hasXvfb = args.includes('-xvfb');
-    const hasVnc = args.includes('-vnc');
-    const isInXvfb = process.env.XVFB_RUNNING === 'true';
-    const isLinux = os.platform() === 'linux';
+    const hasXvfb = args.includes("-xvfb");
+    const hasVnc = args.includes("-vnc");
+    const isInXvfb = process.env.XVFB_RUNNING === "true";
+    const isLinux = os.platform() === "linux";
 
-    log('INFO', '主进程已启动');
+    log("INFO", "主进程已启动");
+
+    // 启动前清理残留进程
+    await cleanupStaleProcesses(3000);
 
     // 处理 Xvfb 参数（仅 Linux）
     if (hasXvfb && isLinux && !isInXvfb) {
@@ -406,7 +588,7 @@ async function main() {
 
     // 如果在 Xvfb 中运行，启动 VNC
     if (isInXvfb && hasVnc) {
-        const display = process.env.DISPLAY || ':99';
+        const display = process.env.DISPLAY || ":99";
         await startVncServer(display);
     }
 
@@ -414,15 +596,15 @@ async function main() {
     startIpcServer();
 
     // 启动子服务（过滤掉 -xvfb 和 -vnc 参数）
-    const serverArgs = args.filter(arg => arg !== '-xvfb' && arg !== '-vnc');
+    const serverArgs = args.filter((arg) => arg !== "-xvfb" && arg !== "-vnc");
     startServer(serverArgs);
 
     // 处理退出信号
-    process.on('SIGINT', stopAll);
-    process.on('SIGTERM', stopAll);
+    process.on("SIGINT", stopAll);
+    process.on("SIGTERM", stopAll);
 }
 
 main().catch((err) => {
-    log('ERROR', `启动失败: ${err.message}`);
+    log("ERROR", `启动失败: ${err.message}`);
     process.exit(1);
 });

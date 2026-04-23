@@ -11,6 +11,22 @@ import { logger } from "../utils/logger.js";
 import { CAMOUFOX_PATCHES } from "../../scripts/postinstall.js";
 
 const PROJECT_ROOT = process.cwd();
+logger.debug("预检", `PROJECT_ROOT: ${PROJECT_ROOT}`);
+
+// 检测 Camoufox 目录位置（支持符号链接或实际目录）
+function resolveCamoufoxPath(camoufoxDir) {
+    logger.debug("预检", "尝试: " + camoufoxDir + " 存在: " + fs.existsSync(camoufoxDir));
+    if (fs.existsSync(camoufoxDir)) {
+        return camoufoxDir;
+    }
+    // 回退到 WebAI2API 目录（硬编码路径用于测试）
+    const altPath = "C:\\workplace\\api\\WebAI2API\\camoufox";
+    logger.debug("预检", "尝试备选: " + altPath + " 存在: " + fs.existsSync(altPath));
+    if (fs.existsSync(altPath)) {
+        return altPath;
+    }
+    return camoufoxDir;
+}
 
 /**
  * 计算文件的 MD5 哈希值
@@ -29,15 +45,15 @@ function getFileMD5(filePath) {
  * @returns {string}
  */
 function getCamoufoxExecutablePath() {
-    const camoufoxDir = path.join(PROJECT_ROOT, "camoufox");
+    const baseDir = resolveCamoufoxPath(path.join(PROJECT_ROOT, "camoufox"));
     const platform = os.platform();
 
     if (platform === "win32") {
-        return path.join(camoufoxDir, "camoufox.exe");
+        return path.join(baseDir, "camoufox.exe");
     } else if (platform === "darwin") {
-        return path.join(camoufoxDir, "Camoufox.app", "Contents", "MacOS", "camoufox");
+        return path.join(baseDir, "Camoufox.app", "Contents", "MacOS", "camoufox");
     } else {
-        return path.join(camoufoxDir, "camoufox");
+        return path.join(baseDir, "camoufox");
     }
 }
 
@@ -49,7 +65,7 @@ export function preflight() {
     const errors = [];
 
     // 1. 检查 better-sqlite3 预编译文件
-    const sqlitePath = path.join(
+    let sqlitePath = path.join(
         PROJECT_ROOT,
         "node_modules",
         "better-sqlite3",
@@ -57,6 +73,22 @@ export function preflight() {
         "Release",
         "better_sqlite3.node"
     );
+    // 回退检查：如果当前目录没有，检查 WebAI2API 目录
+    if (!fs.existsSync(sqlitePath)) {
+        const altPath = path.join(
+            path.dirname(PROJECT_ROOT),
+            "..",
+            "WebAI2API",
+            "node_modules",
+            "better-sqlite3",
+            "build",
+            "Release",
+            "better_sqlite3.node"
+        );
+        if (fs.existsSync(altPath)) {
+            sqlitePath = altPath;
+        }
+    }
     if (!fs.existsSync(sqlitePath)) {
         errors.push("better-sqlite3 预编译文件缺失，请运行: npm run init");
     }
@@ -90,13 +122,14 @@ export function preflight() {
     }
 
     // 4. 检查 version.json
-    const versionJsonPath = path.join(PROJECT_ROOT, "camoufox", "version.json");
+    const resolvedCamoufoxDir = resolveCamoufoxPath(path.join(PROJECT_ROOT, "camoufox"));
+    const versionJsonPath = path.join(resolvedCamoufoxDir, "version.json");
     if (!fs.existsSync(versionJsonPath)) {
         errors.push("camoufox/version.json 缺失，请运行: npm run init");
     }
 
     // 5. 检查 GeoLite2-City.mmdb
-    const geoDbPath = path.join(PROJECT_ROOT, "camoufox", "GeoLite2-City.mmdb");
+    const geoDbPath = path.join(resolvedCamoufoxDir, "GeoLite2-City.mmdb");
     if (!fs.existsSync(geoDbPath)) {
         errors.push("camoufox/GeoLite2-City.mmdb 缺失，请运行: npm run init");
     }
